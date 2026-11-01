@@ -1,0 +1,31 @@
+# Configuration of the negative self-tests (NegativeCasesIT): the same fixture application as cases/_context.yaml,
+# with only what the broken cases need. The extra variants each hold one kind of broken setup, so the failure stays
+# inside that variant and the other negative cases still run against the default one.
+application: com.yamltestkit.selftest.app.SelftestApplication
+properties:
+  spring.config.name: selftest
+  spring.config.location: classpath:/com/yamltestkit/selftest/app/
+  logging.level.com.yamltestkit.selftest: INFO
+  fixture.mode: negative
+  fixture.optional-feature: "on"
+  fixture.feed.reload-interval: 3600000
+  partner.base-url: ${wiremock.partner.url}
+  tracking.host: ${wiremock.tracking.host}
+  tracking.port: ${wiremock.tracking.port}
+services: [ partner, tracking ]
+# Longer than fixture.events.response-delay, so a late response event never counts in the next case.
+settleMs: 100
+mockBeans:
+  - name: feedRepository
+    stubs:
+      - { method: findAll, returns: [ { id: 1 }, { id: 2 } ] }
+  - name: reportStore
+    type: com.yamltestkit.selftest.app.ReportStore
+    primary: true
+  - eventLogger
+spyBeans: [ auditService ]
+variants:
+  # validation/unknown-bean.yaml mocks a bean the context does not have, so this variant's context can't start.
+  unknown-bean: { }
+  # validation/mock-spy-conflict-*.yaml mock and spy the same bean, so this variant fails before its context starts.
+  mock-spy-conflict: { }

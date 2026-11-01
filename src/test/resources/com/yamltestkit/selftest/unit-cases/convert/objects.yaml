@@ -1,0 +1,104 @@
+# Row 16 at unit level: builder objects (Lombok builder(), hand-written builder().setX()), records, Optional, List,
+# Map with null values, null, CompletableFuture — as arguments and as returned values.
+cases:
+  - name: Lombok builder object as argument and returned value
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: request
+      args: [ { maxAds: 4, publisherId: pub-1, sections: [ top, side ] } ]
+    expect:
+      returns: { maxAds: 5, publisherId: pub-1, sections: [ top, side ] }
+
+  - name: hand-written setX builder object as argument
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: query
+      args: [ { maxAds: 4, query: shoes } ]
+    expect:
+      returns: shoes/4
+
+  - name: list of records
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: providers
+      args: [ [ { name: amazon, maxAds: 4 }, { name: ebay, maxAds: 2 } ] ]
+    expect:
+      returns: [ { name: amazon, maxAds: 4 }, { name: ebay, maxAds: 2 } ]
+      assert:
+        - { path: "$[*].name", containsExactly: [ amazon, ebay ] }
+
+  - name: map with a null value
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: map
+      args: [ { qt: null, plid: "123" } ]
+    expect:
+      assert:
+        - { path: "$.qt", exists: true }
+        - { path: "$.qt", isNull: true }
+        - { path: "$.plid", equals: "123" }
+
+  - name: YAML null is Java null
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: isNull
+      args: [ null ]
+    expect:
+      returns: true
+
+  - name: YAML null is an empty Optional
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: orDefault
+      args: [ null ]
+    expect:
+      returns: default
+
+  - name: YAML value is a present Optional
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: orDefault
+      args: [ given ]
+    expect:
+      returns: given
+
+  - name: returned empty Optional is null in JSON
+    call:
+      class: com.yamltestkit.selftest.unit.ModelEcho
+      method: optional
+      args: [ null ]
+    expect:
+      returns: null
+
+  - name: Optional returned by a stub keyed by argument
+    call:
+      class: com.yamltestkit.selftest.unit.ProviderService
+      method: describe
+      args: [ amazon ]
+      deps:
+        registry:
+          stubs:
+            - { method: find, args: [ amazon ], returns: { name: amazon, maxAds: 4 } }
+            - { method: find, args: [ ebay ], returns: null }
+    expect:
+      returns: amazon:4
+
+  - name: CompletableFuture returned by a stub
+    call:
+      class: com.yamltestkit.selftest.unit.ProviderService
+      method: fetchMaxAds
+      args: [ ebay ]
+      deps:
+        lookup: { stubs: [ { method: fetch, returns: { name: ebay, maxAds: 3 } } ] }
+    expect:
+      returns: 3
+
+  - name: returned CompletableFuture is its result in JSON
+    call:
+      class: com.yamltestkit.selftest.unit.ProviderService
+      method: fetch
+      args: [ ebay ]
+      deps:
+        lookup: { stubs: [ { method: fetch, returns: { name: ebay, maxAds: 3 } } ] }
+    expect:
+      returns: { name: ebay, maxAds: 3 }

@@ -1,0 +1,85 @@
+# Builder objects, records, Optional, List, Map with null values and null in a running context (row 16; models: a
+# client library's AdRequest (Lombok builder) and AdResponse (builder().setX()) the ITs build and capture, records
+# such as Provider, Optional lookups, and the List<Map<String, Object>> JDBC rows queryForList returns).
+cases:
+  - name: a Lombok builder argument and a setX builder return value
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns: { ads: [ { id: b1, title: Bike, section: top, price: 900, landingUrl: "https://shop.example/b1" } ] }
+    call:
+      bean: dspClient
+      method: requestAds
+      args: [ { requestId: req-b, queryTerm: bike, queryTerms: [ bike ], maxAds: 2, publisher: { placementId: 5 } } ]
+    expect:
+      returns: { ads: [ { id: b1, title: Bike, price: 900 } ] }
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0]", equals: { requestId: req-b, maxAds: 2, publisher: { placementId: 5 } } }
+            - { path: "$[0].args[0].publisher.competitivenessId", isNull: true }
+
+  # The two Optional cases go through the ad flow: AdSelector maps the Optional, so a stub that returned null instead
+  # of an Optional would end in a 500, and a record outside an Optional would not reach the DSP request.
+  - name: a record returned inside an Optional, keyed by argument
+    mocks:
+      - { bean: providerRegistry, method: find, args: [ amazon ], returns: { name: amazon, maxAds: 3 } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes, provider: amazon } }
+    expect:
+      status: 200
+      verify:
+        - { bean: dspClient, method: requestAds, times: 1, assert: [ { path: "$[0].args[0].maxAds", equals: 3 } ] }
+
+  - name: YAML null returns an empty Optional
+    mocks:
+      - { bean: providerRegistry, method: find, args: [ ebay ], returns: null }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes, provider: ebay } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.warnings", containsExactly: [ unknown provider ebay ] }
+
+  - name: row maps with null values loaded through the cache
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { id: 5, name: null, region: us }, { id: 6, name: six } ] }
+    steps:
+      - name: reload
+        call: { bean: feedCache, method: reload }
+      - name: rows
+        call: { bean: feedCache, method: rows }
+        expect:
+          returns: [ { id: 5, name: null, region: us }, { id: 6, name: six } ]
+          assert:
+            - { path: "$[0].name", exists: true }
+            - { path: "$[0].name", isNull: true }
+            - { path: "$[1].region", absent: true }
+      - name: row found as an Optional
+        call: { bean: feedCache, method: find, args: [ 5 ] }
+        expect:
+          returns: { id: 5, name: null, region: us }
+
+  - name: a list of strings returned by a stub
+    mocks:
+      - { bean: innerClient, method: blockedTerms, args: [ [ shoes, socks ] ], returns: [ socks ] }
+    call: { bean: outerService, method: filterTerms, args: [ [ shoes, socks ] ] }
+    expect:
+      returns: [ shoes ]
+
+  - name: a record argument and a CompletableFuture result
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        body: { query: tents, limit: 1 }
+        response:
+          status: 200
+          headers: { Content-Type: application/json }
+          body: { items: [ { id: t1, title: Dome tent } ] }
+    call:
+      bean: discoverController
+      method: discover
+      args: [ "3.0", { intent: { prompt: tents, ad_count: 1 }, meta: { request_id: req-cf } } ]
+    expect:
+      returns: { version: "3.0", request_id: req-cf, items: [ { id: t1, title: Dome tent } ] }

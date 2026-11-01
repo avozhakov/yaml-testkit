@@ -1,0 +1,67 @@
+# HTTP answers computed from the request (row 18, HTTP part; model: TrackingUrlResilienceIT's `thenAnswer` that builds
+# one URL result per ad of the captured request, keyed by the ad selection id generated at runtime). The migration
+# moves such computing answers to WireMock response templating; the tracking client keeps a click URL only for the
+# item ids it sent, so an ad keeps its clickUrl only if the template answered its id.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+  expect: { status: 200 }
+cases:
+  - name: the _defaults.yaml template answers every item with its own id
+    expect:
+      assert:
+        - { path: "$.ads", size: 2 }
+        - { path: "$.ads", all: { path: "$.clickUrl", matches: '^https://click\.example/\d+$' } }
+        - { path: "$.ads[*].clickUrl", unique: true }
+      verify:
+        - service: tracking
+          method: POST
+          path: /urls
+          times: 1
+          assert:
+            - { path: "$[0].body.items", size: 2 }
+            - { path: "$[0].body.items[*].id", unique: true }
+            - { path: "$[0].body.items[*].landingUrl", containsExactly: [ "https://shop.example/p1", "https://shop.example/p2" ] }
+
+  - name: a case template renders fields of each item it is sent
+    http:
+      - service: tracking
+        method: POST
+        path: /urls
+        response:
+          status: 200
+          headers: { Content-Type: application/json }
+          template: true
+          body: >-
+            {"urls": [{{#each (jsonPath request.body '$.items') as |item|}}{{#unless @first}}, {{/unless}}{"id":
+            "{{item.id}}", "clickUrl": "{{item.landingUrl}}?click={{item.id}}"}{{/each}}]}
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: t1, title: Tent, section: top, price: 300, landingUrl: "https://shop.example/t1" }
+            - { id: t2, title: Stove, section: top, price: 90, landingUrl: "https://shop.example/t2" }
+            - { id: t3, title: Lamp, section: side, price: 20, landingUrl: "https://shop.example/t3" }
+    call: { query: { plid: 14019, qt: camping, provider: dsp } }
+    expect:
+      assert:
+        - { path: "$.ads[*].id", containsExactly: [ t1, t2, t3 ] }
+        - { path: "$.ads[0].clickUrl", matches: '^https://shop\.example/t1\?click=\d+$' }
+        - { path: "$.ads[1].clickUrl", matches: '^https://shop\.example/t2\?click=\d+$' }
+        - { path: "$.ads[2].clickUrl", matches: '^https://shop\.example/t3\?click=\d+$' }
+      verify:
+        - { service: tracking, method: POST, path: /urls, times: 1, assert: [ { path: "$[0].body.items", size: 3 } ] }
+
+  - name: an answer without the sent ids leaves the ads without click URLs
+    http:
+      - service: tracking
+        method: POST
+        path: /urls
+        response:
+          status: 200
+          headers: { Content-Type: application/json }
+          body: { urls: [ { id: "1", clickUrl: "https://click.example/fixed" } ] }
+    expect:
+      assert:
+        - { path: "$.ads", size: 2 }
+        - { path: "$.ads", none: { path: "$.clickUrl", exists: true } }

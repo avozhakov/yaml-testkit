@@ -1,0 +1,21 @@
+# The HTTP body equals the payload of the logged response event (row 37; model: the event-logging ITs, which capture the
+# ResponseMessage handed to the mocked KafkaDataLoggerClient and compare its response string with the body). The event
+# is sent from the executor after the response, so the verification waits for it.
+name: logged response string equals the HTTP body
+call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+expect:
+  status: 200
+  verify:
+    - bean: eventLogger
+      method: send
+      argType: { index: 1, type: com.yamltestkit.selftest.app.events.ResponseEvent }
+      times: 1
+      within: 3s
+      as: logged
+      assert:
+        - { path: "$[0].args[0]", equals: { ref: main, path: "$.requestId" } }
+        - { path: "$[0].args[2]", equals: ad_response }
+  body: { value: { ref: logged, path: "$[0].args[1].adResponseString", parseJson: true }, mode: strict }
+  assert:
+    - { path: "$", equals: { ref: logged, path: "$[0].args[1].adResponseString", parseJson: true }, mode: strict }
+    - { path: "$.ads[*].adSelectionId", equals: { ref: logged, path: "$[0].args[1].ads[*].adSelectionId" } }

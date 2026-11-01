@@ -1,0 +1,5 @@
+name: duplicate key
+call:
+  class: com.example.Unit
+  method: run
+  method: stop

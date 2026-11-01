@@ -1,0 +1,14 @@
+# Awaiting bean state (row 42; model: DiscoverFeedProviderCacheIntegrationTest.awaitBootTimeLoad, an Awaitility wait
+# for the scheduled load): the reload runs on another thread after a delay, and the step polls the cache until it
+# holds the new rows.
+name: cache filled by an asynchronous reload
+steps:
+  - name: baseline
+    call: { bean: feedReloadScheduler, method: reloadFeeds }
+  - name: request a reload
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { id: 1 }, { id: 2 }, { id: 3 } ] }
+    call: { bean: feedReloadScheduler, method: reloadFeedsLater }
+  - name: await the new rows
+    call: { bean: feedCache, method: size }
+    expect: { returns: 3, within: 5s, every: 50ms }

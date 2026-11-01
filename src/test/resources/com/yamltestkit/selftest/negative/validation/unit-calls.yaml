@@ -1,0 +1,60 @@
+# Class cases the engine can't run as written: method, constructor, deps and value problems, plus the expectations
+# of a class call on a value that must make them fail.
+cases:
+  - name: ambiguous method
+    call:
+      class: com.yamltestkit.selftest.unit.Greeter
+      method: greet
+      args: [ Ann ]
+      constructor: [ ]
+
+  - name: several constructors
+    call:
+      class: com.yamltestkit.selftest.unit.Greeter
+      method: greet
+      paramTypes: [ String ]
+      args: [ Ann ]
+
+  - name: unknown dep
+    call:
+      class: com.yamltestkit.selftest.unit.AdTitleFormatter
+      method: format
+      args: [ shop, [ a ] ]
+      deps:
+        clock: { value: 1 }
+
+  - name: ambiguous dep type
+    call:
+      class: com.yamltestkit.selftest.unit.LimitRange
+      method: width
+      deps:
+        Limits: { value: { max: 3 } }
+
+  - name: no matching exception constructor
+    call:
+      class: com.yamltestkit.selftest.unit.ResilientCaller
+      method: call
+      args: [ ad-1, 1 ]
+      deps:
+        partnerApi:
+          stubs:
+            - method: fetch
+              throws: { type: com.yamltestkit.selftest.unit.ApiException, args: [ x, y, z ] }
+
+  - name: unconvertible value
+    call:
+      class: com.yamltestkit.selftest.unit.AdTitleFormatter
+      method: format
+      args: [ shop, [ a ] ]
+      deps:
+        limits: { value: { max: lots } }
+
+  - name: returns
+    call: { class: com.yamltestkit.selftest.unit.Slugs, method: slug, args: [ Red Tent ] }
+    expect:
+      returns: blue-tent
+
+  - name: throws expected but returned
+    call: { class: com.yamltestkit.selftest.unit.Slugs, method: slug, args: [ Red Tent ] }
+    expect:
+      throws: { type: IllegalArgumentException }

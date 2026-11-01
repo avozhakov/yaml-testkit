@@ -1,0 +1,61 @@
+# The assert operators on an HTTP response (rows 29, 30, 52; models: the JsonNode helpers of Java ITs —
+# count ads by a predicate, all / none of the ads have a field, size, at most N — and MockMvc jsonPath matchers:
+# value, hasSize, exists, doesNotExist, empty, hasItems). A v2.1 JSON-array qt makes every ad render its qt.
+defaults:
+  mocks:
+    - bean: dspClient
+      method: requestAds
+      returns:
+        ads:
+          - { id: s1, title: Trail shoes, qt: shoes, section: top, price: 120, asin: B0TRAIL01, landingUrl: "https://shop.example/s1" }
+          - { id: s2, title: Road shoes, qt: shoes, section: side, price: 80, landingUrl: "https://shop.example/s2" }
+          - { id: k1, title: Wool socks, qt: socks, section: top, price: 15, landingUrl: "https://shop.example/k1" }
+          - { id: k2, title: Run socks, qt: socks, section: side, price: 9, landingUrl: "https://shop.example/k2" }
+  call: { http: GET /ads, query: { plid: 14019, qt: '["shoes","socks"]', v: "2.1" } }
+  expect: { status: 200 }
+cases:
+  - name: JsonNode helper style checks
+    expect:
+      assert:
+        - { path: "$.ads[?(@.qt == 'shoes')]", size: 2 }
+        - { path: "$.ads[?(@.price >= 80)]", size: 2 }
+        - { path: "$.ads[?(@.qt == 'boots')]", size: 0 }
+        - { path: "$.ads", all: { path: "$.clickUrl", exists: true } }
+        - { path: "$.ads", none: { path: "$.advertiserUrl", exists: true } }
+        - { path: "$.ads[?(@.qt == 'socks')]", none: { path: "$.asin", exists: true } }
+        - { path: "$.ads", size: 4 }
+        - { path: "$.ads.length()", lte: 4 }
+        - { path: "$.ads.length()", gte: 1 }
+        - { path: "$.ads", all: { path: "$.price", lte: 120 } }
+        - { path: "$.ads", all: { path: "$.adSelectionId", gte: 1 } }
+
+  - name: MockMvc jsonPath style checks
+    expect:
+      assert:
+        - { path: "$.ads[0].title", equals: Trail shoes }
+        - { path: "$.ads[0]", equals: { id: s1, qt: shoes, asin: B0TRAIL01 } }
+        - { path: "$.ads[0].price", equals: 120 }
+        - { path: "$.ads[1].title", notEquals: Trail shoes }
+        - { path: "$.ads", size: 4 }
+        - { path: "$.ads[0].asin", exists: true }
+        - { path: "$.ads[0].asin", notNull: true }
+        - { path: "$.ads[1].asin", absent: true }
+        - { path: "$.diag", absent: true }
+        - { path: "$.warnings", size: 0 }
+        - { path: "$.ads[*].qt", contains: [ shoes, socks ] }
+        - { path: "$.ads[*].section", contains: top }
+        - { path: "$.ads[*].id", unique: true }
+        - { path: "$.ads[*].adSelectionId", unique: true }
+        - { path: "$.requestId", startsWith: req- }
+        - { path: "$.requestId", matches: 'req-\d+' }
+        - { path: "$.ads[2].title", contains: socks }
+        - { path: "$.ads[2].title", contains: [ Wool, socks ] }
+
+  - name: per-element checks over every ad
+    expect:
+      assert:
+        - { path: "$.ads", all: { path: "$.id", matches: '[sk]\d' } }
+        - { path: "$.ads", all: { path: "$.qt", notNull: true } }
+        - { path: "$.ads", all: { path: "$.gtin", isNull: true } }
+        - { path: "$.ads[?(@.section == 'top')]", all: { path: "$.price", gte: 15 } }
+        - { path: "$.ads[?(@.section == 'side')]", none: { path: "$.price", gte: 100 } }

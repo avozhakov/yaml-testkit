@@ -1,0 +1,23 @@
+# A real object around an inner mock (row 24; model: IntentFilter, real, around the mocked intent-identifier client):
+# OuterService stays real and filters the query terms; only InnerClient, its boundary, is mocked.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: '["shoes","socks"]', v: "2.1" } }
+  expect: { status: 200 }
+cases:
+  - name: the real outer service drops the terms its inner client blocks
+    mocks:
+      - { bean: innerClient, method: blockedTerms, args: [ [ shoes, socks ] ], returns: [ socks ] }
+    expect:
+      verify:
+        - { bean: innerClient, method: blockedTerms, args: [ [ shoes, socks ] ], times: 1 }
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].queryTerm", equals: '["shoes","socks"]' }
+            - { path: "$[0].args[0].queryTerms", containsExactly: [ shoes ] }
+
+  - name: nothing blocked keeps every term
+    expect:
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ shoes, socks ] } ] }

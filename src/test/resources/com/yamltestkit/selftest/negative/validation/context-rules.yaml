@@ -1,0 +1,21 @@
+# Cases whose context setup is wrong: the engine rejects each of them when the case starts.
+cases:
+  - name: unknown variant
+    context: ebay-of
+    call: { http: GET /golden }
+
+  - name: unknown service
+    http:
+      - { service: geo, method: GET, path: /lookup, response: { status: 200 } }
+    call: { http: GET /golden }
+
+  - name: verify on a bean neither mocked nor spied
+    call: { bean: modeService, method: mode }
+    expect:
+      verify: [ { bean: modeService, method: mode, times: 1 } ]
+
+  - name: log level filtered by configuration
+    call: { bean: feedCache, method: reload }
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: DEBUG, contains: reloaded }

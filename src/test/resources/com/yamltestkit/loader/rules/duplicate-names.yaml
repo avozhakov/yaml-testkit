@@ -1,0 +1,9 @@
+cases:
+  - name: same
+    call: { class: com.example.Unit, method: run }
+  - name: same
+    call: { class: com.example.Unit, method: run }
+  - name: duplicate steps
+    steps:
+      - { name: a, call: { class: com.example.Unit, method: run } }
+      - { name: a, call: { class: com.example.Unit, method: run } }

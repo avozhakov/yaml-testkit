@@ -1,0 +1,18 @@
+# Expected exceptions that don't match what the call throws, and a step-level `within` that runs out of time.
+# InventoryCheck.available throws IllegalStateException("db down") for any sku that is not blank.
+cases:
+  - name: throws with a wrong type
+    call: { class: com.yamltestkit.selftest.unit.InventoryCheck, method: available, args: [ sku-1 ] }
+    expect:
+      throws: { type: IllegalArgumentException }
+
+  - name: throws with a wrong message
+    call: { class: com.yamltestkit.selftest.unit.InventoryCheck, method: available, args: [ sku-1 ] }
+    expect:
+      throws: { type: IllegalStateException, message: db up }
+
+  - name: step-level within times out
+    mocks:
+      - { bean: reportStore, method: count, returns: 4 }
+    call: { bean: reportService, method: count }
+    expect: { returns: 5, within: 300ms, every: 100ms }

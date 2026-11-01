@@ -1,0 +1,16 @@
+# Verification of a class call's dependency mocks (verify dep sees the step's instance mocks).
+name: dependency mock called with the cta
+call:
+  class: com.yamltestkit.selftest.unit.AdTitleFormatter
+  method: format
+  args: [ shop, [ a, b ] ]
+  deps:
+    CtaIdConverter: { stubs: [ { method: convert, returns: 42 } ] }
+    limits: { value: { max: 1 } }
+expect:
+  returns: { ctaId: 42, titles: [ a ] }
+  verify:
+    - { dep: CtaIdConverter, method: convert, args: [ shop ], times: 1, as: converted }
+    - { dep: CtaIdConverter, method: convert, args: [ buy ], never: true }
+  assert:
+    - { path: "$.ctaId", equals: 42 }

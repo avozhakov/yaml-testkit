@@ -1,0 +1,86 @@
+# Argument captors (row 38; models: ArgumentCaptor<AdRequest> on the DSP client reading fields of the outbound request,
+# captured events looked up per item by id, the order of the calls, and generic lists filtered by a field). A check
+# exposes the calls as `[ { "args": [ … ] } ]` in invocation order; JSONPath filters do the per-item lookup.
+cases:
+  - name: fields of the outbound DSP request
+    mocks:
+      - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, availableSlots: 3, competitivenessId: c-7 } } }
+    call: { http: GET /ads, query: { plid: 14019, qt: '["shoes","socks"]', v: "2.1" } }
+    expect:
+      status: 200
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0]", equals: { queryTerm: '["shoes","socks"]', maxAds: 3, publisher: { placementId: 14019, competitivenessId: c-7 } } }
+            - { path: "$[0].args[0].queryTerms", containsExactly: [ shoes, socks ] }
+            - { path: "$[0].args[0].requestId", startsWith: req- }
+            - { path: "$[0].args", size: 1 }
+
+  - name: calls in order and filtered by a field
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - bean: eventLogger
+          method: send
+          times: 2
+          within: 3s
+          assert:
+            - { path: "$[*].args[2]", containsExactly: [ ad_request, ad_response ] }
+            - { path: "$[0].args[1].queryTerms", containsExactly: [ shoes ] }
+            - { path: "$[0].args[1].placementId", equals: 14019 }
+            - { path: "$[?(@.args[2] == 'ad_response')]", size: 1 }
+            - { path: "$[1].args[1].ads", size: 2 }
+            - { path: "$[1].args[1].ads[?(@.qt == 'shoes')]", size: 2 }
+            - { path: "$[1].args[1].ads", all: { path: "$.adSelectionId", gte: 1 } }
+
+  - name: per-item lookup in a captured request by id
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: c1, title: Coat, qt: coat, section: top, price: 200, landingUrl: "https://shop.example/c1" }
+            - { id: h1, title: Hat, qt: hat, section: side, price: 30, landingUrl: "https://shop.example/h1" }
+    call: { http: GET /ads, query: { plid: 14019, qt: '["coat","hat"]', v: "2.1" } }
+    expect:
+      status: 200
+      verify:
+        - service: tracking
+          method: POST
+          path: /urls
+          times: 1
+          assert:
+            - { path: "$[0].body.items[?(@.landingUrl == 'https://shop.example/h1')]", size: 1 }
+            - { path: "$[0].body.items[?(@.landingUrl == 'https://shop.example/h1')].id", unique: true }
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.ResponseEvent }
+          within: 3s
+          assert:
+            - { path: "$[0].args[1].ads[?(@.qt == 'hat')]", size: 1 }
+            - { path: "$[0].args[1].ads[?(@.qt == 'coat')].adSelectionId", equals: { ref: main, path: "$.ads[?(@.id == 'c1')].adSelectionId" } }
+
+  - name: retried calls captured in order with the same request
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        answers:
+          - throws: { type: com.yamltestkit.selftest.app.ApiException, args: [ 503, transient ] }
+          - returns: { ads: [ ] }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 2
+          as: attempts
+          assert:
+            - { path: "$[*].args[0].queryTerm", containsExactly: [ shoes, shoes ] }
+        - bean: dspClient
+          method: requestAds
+          assert:
+            - { path: "$[1].args[0]", equals: { ref: attempts, path: "$[0].args[0]" }, mode: strict }

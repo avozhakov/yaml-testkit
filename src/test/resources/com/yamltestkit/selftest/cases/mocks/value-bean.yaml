@@ -1,0 +1,5 @@
+# A test-built replacement bean (row 14, data objects; model: DiscoverExchangeSources(List.of()) built in a test
+# configuration): `valueBeans` in _context.yaml replaces exchangeSources with an empty instance.
+name: value bean replaces the real bean
+call: { bean: exchangeService, method: count }
+expect: { returns: 0 }

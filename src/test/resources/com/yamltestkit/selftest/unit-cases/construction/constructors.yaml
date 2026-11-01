@@ -1,0 +1,31 @@
+# Unit call construction: the single constructor, a chosen one, and static methods without an instance.
+cases:
+  - name: chosen constructor with a value dependency
+    call:
+      class: com.yamltestkit.selftest.unit.Greeter
+      method: greet
+      paramTypes: [ String ]
+      args: [ Ann ]
+      constructor: [ String ]
+      deps:
+        greeting: { value: Hi }
+    expect:
+      returns: Hi, Ann
+
+  - name: chosen no-argument constructor
+    call:
+      class: com.yamltestkit.selftest.unit.Greeter
+      method: greet
+      paramTypes: [ java.lang.String, int ]
+      args: [ Bo, 2 ]
+      constructor: []
+    expect:
+      returns: Hello, Bo! Hello, Bo!
+
+  - name: static method creates no instance
+    call:
+      class: com.yamltestkit.selftest.unit.Slugs
+      method: slug
+      args: [ "  Red Shoes & Socks " ]
+    expect:
+      returns: red-shoes-socks

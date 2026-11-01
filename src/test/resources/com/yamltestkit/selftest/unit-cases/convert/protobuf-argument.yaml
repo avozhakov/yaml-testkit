@@ -1,0 +1,8 @@
+# Row 15 at unit level: a YAML argument converted to a protobuf message with JsonFormat.
+name: protobuf message as an argument
+call:
+  class: com.yamltestkit.selftest.unit.PlacementService
+  method: name
+  args: [ { name: top, slots: 3 } ]
+expect:
+  returns: top

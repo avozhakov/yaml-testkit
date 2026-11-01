@@ -1,0 +1,21 @@
+# An expected exception from a bean call (row 7; model: DiscoverFeedProviderCacheIntegrationTest
+# .reloadCaches_whenTheQueryFails_shouldKeepThePreviousContents): the failed load reaches the caller, and the cache
+# keeps the rows it had, since the query runs before the cache is touched.
+name: a failed reload throws and keeps the previous rows
+steps:
+  - name: baseline
+    call: { bean: feedReloadScheduler, method: reloadFeeds }
+  - name: failing reload
+    mocks:
+      - bean: feedRepository
+        method: findAll
+        throws: { type: org.springframework.dao.DataAccessResourceFailureException, message: discover provider load failed }
+    call: { bean: feedReloadScheduler, method: reloadFeeds }
+    expect:
+      throws: { type: org.springframework.dao.DataAccessResourceFailureException, message: discover provider load failed }
+  - name: previous rows kept
+    call: { bean: feedCache, method: size }
+    expect: { returns: 2 }
+  - name: previous row still served
+    call: { bean: feedCache, method: find, args: [ 2 ] }
+    expect: { returns: { id: 2 } }

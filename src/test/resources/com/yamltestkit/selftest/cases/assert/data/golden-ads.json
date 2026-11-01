@@ -1,0 +1,10 @@
+{
+  "requestId": "ignored",
+  "ads": [
+    { "adSelectionId": 0, "id": "p1", "title": "Red shoes", "section": "top", "price": 120, "gtin": null,
+      "clickUrl": "ignored" },
+    { "adSelectionId": 0, "id": "p2", "title": "Blue shoes", "section": "side", "price": 80, "asin": "B00SHOES",
+      "gtin": null, "clickUrl": "ignored" }
+  ],
+  "warnings": []
+}

@@ -1,0 +1,11 @@
+# A bean of a generic type mocked by name (row 11; model: AbstractSpringBootIT's
+# @MockitoBean(name = "redisConnection") StatefulRedisClusterConnection<String, byte[]>): the consumer that injects it
+# by its generic type gets the mock.
+name: generic bean mocked by name is injected by its generic type
+mocks:
+  - { bean: blobSupplier, method: get, returns: { b: "AQI=", a: "AQ==" } }
+call: { bean: blobService, method: keys }
+expect:
+  returns: [ a, b ]
+  verify:
+    - { bean: blobSupplier, method: get, times: 1 }

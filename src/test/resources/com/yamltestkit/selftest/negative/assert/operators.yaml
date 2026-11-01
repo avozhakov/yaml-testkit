@@ -1,0 +1,90 @@
+# One case per assert operator, each on data that must make it fail (spec: Engine self-test suite). The ad request
+# returns the two default ads: p1 "Red shoes" (price 120, no asin, gtin null) and p2 "Blue shoes" (price 80, asin
+# B00SHOES).
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+cases:
+  - name: equals
+    expect:
+      assert: [ { path: "$.ads[0].title", equals: Green shoes } ]
+
+  - name: notEquals
+    expect:
+      assert: [ { path: "$.ads[0].title", notEquals: Red shoes } ]
+
+  - name: isNull
+    expect:
+      assert: [ { path: "$.ads[1].asin", isNull: true } ]
+
+  - name: notNull
+    expect:
+      assert: [ { path: "$.ads[0].gtin", notNull: true } ]
+
+  - name: exists
+    expect:
+      assert: [ { path: "$.ads[0].asin", exists: true } ]
+
+  - name: absent on a key present with null
+    expect:
+      assert: [ { path: "$.ads[0].gtin", absent: true } ]
+
+  - name: size
+    expect:
+      assert: [ { path: "$.ads", size: 3 } ]
+
+  - name: gte
+    expect:
+      assert: [ { path: "$.ads[1].price", gte: 100 } ]
+
+  - name: lte
+    expect:
+      assert: [ { path: "$.ads[0].price", lte: 100 } ]
+
+  - name: contains
+    expect:
+      assert: [ { path: "$.ads[*].title", contains: Green shoes } ]
+
+  - name: containsExactly
+    expect:
+      assert: [ { path: "$.ads[*].id", containsExactly: [ p2, p1 ] } ]
+
+  - name: containsInAnyOrder
+    expect:
+      assert: [ { path: "$.ads[*].id", containsInAnyOrder: [ p1, p3 ] } ]
+
+  - name: unique
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: t1, title: Tent, section: top, price: 300, landingUrl: "https://shop.example/t1" }
+            - { id: t2, title: Tarp, section: top, price: 40, landingUrl: "https://shop.example/t2" }
+    expect:
+      assert: [ { path: "$.ads[*].section", unique: true } ]
+
+  - name: startsWith
+    expect:
+      assert: [ { path: "$.requestId", startsWith: request- } ]
+
+  - name: matches
+    expect:
+      assert: [ { path: "$.requestId", matches: 'req-[a-z]+' } ]
+
+  - name: all
+    expect:
+      assert: [ { path: "$.ads", all: { path: "$.asin", exists: true } } ]
+
+  - name: none
+    expect:
+      assert: [ { path: "$.ads", none: { path: "$.asin", exists: true } } ]
+
+  - name: parseJson
+    call: { query: { plid: 14019, qt: shoes, debug: true } }
+    expect:
+      assert: [ { path: "$.diag[0].payload", parseJson: true, equals: { dropped: [ p1 ] } } ]
+
+  # `size: 0` would pass on an empty selection; the missing `adz` key must fail it instead.
+  - name: path prefix missing
+    expect:
+      assert: [ { path: "$.adz[*].qt", size: 0 } ]

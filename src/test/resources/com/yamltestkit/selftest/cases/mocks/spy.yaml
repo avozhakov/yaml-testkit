@@ -1,0 +1,23 @@
+# Spy beans (row 12; models: @MockitoSpyBean dataLoggingService and MetricService): the real bean runs unless a stub
+# says otherwise, and its calls are verified with exact arguments.
+cases:
+  - name: spy stub answers the stubbed argument
+    spies: [ { bean: auditService, method: label, args: [ x ], returns: stubbed } ]
+    call: { bean: auditService, method: label, args: [ x ] }
+    expect: { returns: stubbed }
+  - name: spy runs the real method for other arguments
+    spies: [ { bean: auditService, method: label, args: [ x ], returns: stubbed } ]
+    call: { bean: auditService, method: label, args: [ y ] }
+    expect: { returns: "audit:y" }
+  - name: spy stub does not leak into the next case
+    call: { bean: auditService, method: label, args: [ x ] }
+    expect: { returns: "audit:x" }
+  - name: the real method runs inside a request and is verified with exact args
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - { bean: auditService, method: recordResponse, args: [ /ads, 2 ], times: 1 }
+        - { bean: auditService, method: recordResponse, args: [ /ads-private, "#any" ], never: true }
+      logs:
+        - { logger: com.yamltestkit.selftest.app.AuditService, level: INFO, contains: "/ads served 2 ads", times: 1 }

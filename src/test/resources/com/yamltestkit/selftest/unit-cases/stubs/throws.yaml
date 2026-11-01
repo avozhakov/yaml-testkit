@@ -1,0 +1,22 @@
+# Row 20 at unit level: typed exception constructors and causes on consecutive answers (TrackingUrlResilienceIT).
+name: failures then success
+call:
+  class: com.yamltestkit.selftest.unit.ResilientCaller
+  method: call
+  args: [ ad-1, 4 ]
+  deps:
+    partnerApi:
+      stubs:
+        - method: fetch
+          answers:
+            - throws: { type: com.yamltestkit.selftest.unit.ApiException, args: [ 500, boom ] }
+            - throws:
+                type: com.yamltestkit.selftest.unit.ApiException
+                cause: { type: java.net.http.HttpTimeoutException, message: t/o }
+            - returns: ok-body
+expect:
+  returns:
+    - "failed:500:boom:-"
+    - "failed:0:java.net.http.HttpTimeoutException: t/o:HttpTimeoutException(t/o)"
+    - "ok:ok-body"
+    - "ok:ok-body"

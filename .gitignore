@@ -1,0 +1,5 @@
+target/
+.ci-reports/
+.idea/
+*.iml
+.DS_Store

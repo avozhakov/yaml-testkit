@@ -1,0 +1,46 @@
+# A dynamic property from a test server (row 10; model: @DynamicPropertySource registering a stub server's URL).
+# selftest.yml points the partner client at http://localhost:1 and the tracking client at localhost:1; _context.yaml
+# replaces both with the ${wiremock.partner.url} / ${wiremock.tracking.host} / ${wiremock.tracking.port} placeholders.
+cases:
+  - name: client calls the partner WireMock server instead of the configured url
+    http:
+      - service: partner
+        method: GET
+        path: /items/7
+        response: { status: 200, headers: { Content-Type: application/json }, body: { name: seven } }
+    call: { http: GET /partner/items/7 }
+    expect:
+      status: 200
+      body: { name: seven }
+
+  - name: the base url property holds the WireMock url
+    call:
+      bean: environment
+      method: getProperty
+      paramTypes: [ java.lang.String ]
+      args: [ partner.base-url ]
+    expect:
+      assert:
+        - { path: "$", matches: '^http://localhost:\d+$' }
+        - { path: "$", notEquals: "http://localhost:1" }
+
+  - name: host and port placeholders point the tracking client at its WireMock server
+    steps:
+      - name: port
+        call:
+          bean: environment
+          method: getProperty
+          paramTypes: [ java.lang.String ]
+          args: [ tracking.port ]
+        expect:
+          assert:
+            - { path: "$", matches: '^\d+$' }
+            - { path: "$", notEquals: "1" }
+      - name: ads
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect:
+          status: 200
+          assert:
+            - { path: "$.ads", all: { path: "$.clickUrl", startsWith: "https://click.example/" } }
+          verify:
+            - { service: tracking, method: POST, path: /urls, times: 1 }

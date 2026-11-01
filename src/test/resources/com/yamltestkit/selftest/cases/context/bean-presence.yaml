@@ -1,0 +1,28 @@
+# Context assertions on bean presence and registry keys (row 8; models: DiscoverEbayDirectPathOffIntegrationTest,
+# which checks the eBay direct-path beans are absent with the switch off, and ReservedTestSourceKeyIntegrationTest,
+# which reads the keys of a registry bean).
+cases:
+  - name: beans present and absent by name and type
+    call: { bean: featureRegistry, method: keys }
+    expect:
+      returns: [ coreFeature, optionalFeature ]
+      context:
+        beans:
+          present: [ feedCache, reportStore ]
+          absent: [ ebayConnector ]
+        beanTypes:
+          present: [ com.yamltestkit.selftest.app.FeedCache ]
+          absent: [ com.yamltestkit.selftest.unit.Greeter ]
+
+  - name: a feature switched off removes its bean and its registry key
+    context: eco
+    call: { bean: featureRegistry, method: keys }
+    expect:
+      returns: [ coreFeature ]
+      context:
+        beans:
+          present: [ coreFeature, featureRegistry ]
+          absent: [ optionalFeature ]
+        beanTypes:
+          present: [ com.yamltestkit.selftest.app.CoreFeature ]
+          absent: [ com.yamltestkit.selftest.app.OptionalFeature ]

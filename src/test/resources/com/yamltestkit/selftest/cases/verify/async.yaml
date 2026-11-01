@@ -1,0 +1,49 @@
+# Asynchronous calls captured with a timeout and filtered by message type (row 40; model: the event-logging ITs,
+# `verify(kafkaDataLoggerClient, timeout(5000)).sendMessage(anyLong(), captor.capture(), anyString())` with a captor
+# per message class). The request event is sent from the executor at once, the response event 40 ms after the
+# response (fixture.events.response-delay), so a check without `within` would run before it exists.
+cases:
+  - name: each event type awaited and checked on its own
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.ResponseEvent }
+          times: 1
+          within: 3s
+          assert:
+            - { path: "$[0].args[2]", equals: ad_response }
+            - { path: "$[0].args[1].ads", size: 2 }
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.RequestEvent }
+          times: 1
+          within: 3s
+          assert:
+            - { path: "$[0].args[2]", equals: ad_request }
+            - { path: "$[0].args[1].queryTerms", containsExactly: [ shoes ] }
+        - { bean: eventLogger, method: send, args: [ "#any", "#any", ad_response ], times: 1, within: 3s }
+
+  - name: a rejected request logs no event, checked over the whole wait
+    mocks:
+      - { bean: placementAccess, method: getPlacement, returns: { invalid: placement 14019 is paused } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 400
+      verify:
+        - { bean: eventLogger, method: send, never: true, within: 300ms }
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.ResponseEvent }
+          times: 0
+          within: 300ms
+
+  - name: a mock called on another thread after the call returns
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { id: 1 }, { id: 2 }, { id: 3 } ] }
+    call: { bean: feedReloadScheduler, method: reloadFeedsLater }
+    expect:
+      verify:
+        - { bean: feedRepository, method: findAll, times: 1, within: 3s }

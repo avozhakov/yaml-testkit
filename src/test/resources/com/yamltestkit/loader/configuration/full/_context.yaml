@@ -1,0 +1,22 @@
+application: com.example.App
+profiles: [ selftest ]
+properties:
+  spring.config.name: selftest
+  partner.base-url: ${wiremock.partner.url}
+  hosts: [ a, b ]
+services: [ partner ]
+mockBeans:
+  - redisConnection
+  - name: feedRepository
+    stubs:
+      - { method: findAll, returns: { file: data/rows.json } }
+  - { name: jdbcTemplate, type: com.example.Jdbc, primary: true }
+spyBeans: [ auditService ]
+valueBeans:
+  - { name: exchangeSources, type: com.example.Sources, value: { file: data/sources.json }, primary: true }
+variants:
+  eco:
+    properties: { fixture.mode: eco }
+    spyBeans: [ { name: metricService, stubs: [ { method: count, returns: 1 } ] } ]
+converters: [ com.yamltestkit.convert.OptionalConverter ]
+settleMs: 50

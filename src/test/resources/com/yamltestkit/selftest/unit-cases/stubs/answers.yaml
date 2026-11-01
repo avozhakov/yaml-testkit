@@ -1,0 +1,35 @@
+# Stub grammar at unit level: answers keyed by argument, "#any", anyOf, and the pass-through answer.
+cases:
+  - name: answer keyed by argument falls back to the Mockito default
+    call:
+      class: com.yamltestkit.selftest.unit.ProviderService
+      method: describe
+      args: [ other ]
+      deps:
+        registry:
+          stubs:
+            - { method: find, args: [ amazon ], returns: { name: amazon, maxAds: 4 } }
+            - { method: find, args: [ ebay ], returns: null }
+    expect:
+      returns: none
+
+  - name: any-of-type matcher
+    call:
+      class: com.yamltestkit.selftest.unit.AdTitleFormatter
+      method: format
+      args: [ shop, [ a ] ]
+      deps:
+        ctaIds: { stubs: [ { method: convert, args: [ { anyOf: java.lang.String } ], returns: 5 } ] }
+        limits: { value: { max: 1 } }
+    expect:
+      returns: { ctaId: 5, titles: [ a ] }
+
+  - name: pass-through answer wraps the same instance into Validation
+    call:
+      class: com.yamltestkit.selftest.unit.EnrichmentChain
+      method: passesSameInstance
+      args: [ req-1 ]
+      deps:
+        enricher: { stubs: [ { method: enrich, args: [ "#any" ], returnsArg: 0 } ] }
+    expect:
+      returns: true

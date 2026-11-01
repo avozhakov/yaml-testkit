@@ -1,0 +1,20 @@
+defaults:
+  call:
+    http: GET /is
+    query: { plid: 123 }
+    headers: { x-version: "3.0" }
+  mocks:
+    - { bean: placementAccess, method: getPlacement, returns: { id: 1 } }
+  expect:
+    status: 200
+    body: { ads: [ { id: 1 } ], requestId: r1 }
+cases:
+  - name: inherits the defaults
+  - name: overrides query, status and body
+    call:
+      query: { qt: shoes }
+    mocks:
+      - { bean: placementAccess, method: getPlacement, returns: { id: 2 } }
+    expect:
+      status: 204
+      body: { other: true }

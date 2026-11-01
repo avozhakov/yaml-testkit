@@ -1,0 +1,38 @@
+# A pass-through answer (row 17; model: AbstractSpringBootIT's pricingEnricher stub
+# `thenAnswer(inv -> Validation.valid(inv.getArgument(0)))`): `returnsArg` hands the context back, wrapped by the
+# Validation converter, so the rest of the flow carries on with the request the enricher was given.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+cases:
+  - name: enricher stubbed as a pass-through keeps the request flowing
+    mocks:
+      - { bean: pricingEnricher, method: enrich, returnsArg: 0 }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 2 }
+        - { path: "$.warnings", size: 0 }
+      verify:
+        - bean: pricingEnricher
+          method: enrich
+          times: 1
+          as: enriched
+          assert:
+            - { path: "$[0].args[0].terms", containsExactly: [ shoes ] }
+            - { path: "$[0].args[0].placement.availableSlots", equals: 4 }
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].requestId", equals: { ref: enriched, path: "$[0].args[0].requestId" } }
+
+  - name: an invalid enrichment answers 200 without ads
+    mocks:
+      - { bean: pricingEnricher, method: enrich, returns: { invalid: floor not met } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings", containsExactly: [ "enrichment failed: floor not met" ] }
+      verify:
+        - { bean: dspClient, method: requestAds, never: true }

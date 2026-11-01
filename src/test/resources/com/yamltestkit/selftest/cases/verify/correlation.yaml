@@ -1,0 +1,70 @@
+# Id correlation across captures and uniqueness (row 36; model: ExpandedQueryTermRestorationIT — "correlate by request
+# / ad IDs, never by qt": the logged request and response events, the IIS and DSP requests and the HTTP body carry the
+# same request id, and every logged ad selection id is unique and matches an ad of the body). Ids are generated at
+# runtime, so the case only correlates them. Joins between two lists are not supported; equal lists are.
+cases:
+  - name: one request id across the body, the DSP request and both logged events
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - { bean: dspClient, method: requestAds, times: 1, as: dsp }
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.RequestEvent }
+          times: 1
+          within: 3s
+          as: requestEvent
+          assert:
+            - { path: "$[0].args[0]", equals: { ref: dsp, path: "$[0].args[0].requestId" } }
+            - { path: "$[0].args[1].requestId", equals: { ref: dsp, path: "$[0].args[0].requestId" } }
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.ResponseEvent }
+          times: 1
+          within: 3s
+          as: responseEvent
+          assert:
+            - { path: "$[0].args[1].requestId", equals: { ref: requestEvent, path: "$[0].args[1].requestId" } }
+            - { path: "$[0].args[1].ads[*].adSelectionId", unique: true }
+            - { path: "$[0].args[1].ads[*].adSelectionId", equals: { ref: main, path: "$.ads[*].adSelectionId" } }
+        - bean: pricingEnricher
+          method: enrich
+          times: 1
+          assert:
+            - { path: "$[0].args[0].requestId", equals: { ref: dsp, path: "$[0].args[0].requestId" } }
+      assert:
+        - { path: "$.requestId", equals: { ref: dsp, path: "$[0].args[0].requestId" } }
+        - { path: "$.requestId", equals: { ref: responseEvent, path: "$[0].args[1].requestId" } }
+        - { path: "$.ads[*].adSelectionId", unique: true }
+        - { path: "$.ads[*].clickUrl", unique: true }
+
+  - name: the tracking items carry unique ids, one per served ad
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - service: tracking
+          method: POST
+          path: /urls
+          times: 1
+          as: tracking
+          assert:
+            - { path: "$[0].body.items[*].id", unique: true }
+            - { path: "$[0].body.items.length()", equals: { ref: main, path: "$.ads.length()" } }
+      assert:
+        - { path: "$.ads[*].clickUrl", unique: true }
+
+  - name: each request gets its own request id
+    steps:
+      - name: first
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect: { status: 200 }
+      - name: second
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect:
+          status: 200
+          assert:
+            - { path: "$.requestId", notEquals: { ref: first, path: "$.requestId" } }
+            - { path: "$.ads[*].adSelectionId", notEquals: { ref: first, path: "$.ads[*].adSelectionId" } }
+            - { path: "$.ads[*].id", equals: { ref: first, path: "$.ads[*].id" } }

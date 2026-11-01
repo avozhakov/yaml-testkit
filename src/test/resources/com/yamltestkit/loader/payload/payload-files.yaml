@@ -1,0 +1,25 @@
+cases:
+  - name: json payloads from files
+    call:
+      http: POST /discover
+      body: { file: data/request.json }
+    expect:
+      status: 200
+      body: { file: data/expected.json }
+      bodyText: { contains: [ { file: data/snippet.txt }, inline ] }
+
+  - name: exact golden keeps raw text
+    call: { http: GET /golden }
+    expect:
+      body: { file: data/golden.json, mode: exact }
+
+  - name: strict body with ignored paths
+    call: { http: GET /ads }
+    expect:
+      body: { file: data/expected.json, mode: strict, ignore: [ $.requestId ] }
+
+  - name: text file argument
+    call: { bean: feedCache, method: load, args: [ { file: data/plain.txt } ] }
+
+  - name: missing payload file
+    call: { bean: feedCache, method: load, args: [ { file: data/nope.json } ] }

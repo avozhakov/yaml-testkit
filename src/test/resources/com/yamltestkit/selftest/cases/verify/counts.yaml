@@ -1,0 +1,51 @@
+# Verification counts on mocks and spies (row 39; model: times / never / atLeastOnce / verifyNoInteractions and spy
+# verify with exact args in Java ITs).
+cases:
+  - name: mock called once through the real service
+    call: { bean: reportService, method: count }
+    expect:
+      returns: 7
+      verify:
+        - { bean: reportStore, method: count, times: 1 }
+        - { bean: feedRepository, method: findAll, never: true }
+
+  - name: spy verified with exact args, capture asserted
+    call: { bean: auditService, method: label, args: [ x ] }
+    expect:
+      returns: "audit:x"
+      verify:
+        - { bean: auditService, method: label, args: [ x ], atLeast: 1 }
+        - { bean: auditService, method: label, args: [ y ], never: true }
+        - bean: auditService
+          method: label
+          assert:
+            - { path: "$[0].args[0]", equals: x }
+        - { bean: feedRepository, noInteractions: true }
+
+  - name: counts on the calls of one ad request
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - { bean: placementAccess, method: getPlacement, args: [ 14019 ], times: 1 }
+        - { bean: placementAccess, method: getPlacement, args: [ 777 ], times: 0 }
+        - { bean: providerRegistry, method: find, args: [ dsp ], times: 1 }
+        - { bean: dspClient, method: requestAds, atLeast: 1 }
+        # Without a count a check means at least once (atLeastOnce()).
+        - { bean: pricingEnricher, method: enrich }
+        - { bean: auditService, method: recordResponse, args: [ /ads, 2 ], times: 1 }
+        - { bean: auditService, method: label, never: true }
+        - { bean: blobSupplier, noInteractions: true }
+        - { service: tracking, method: POST, path: /urls, times: 1 }
+        - { service: partner, method: ANY, pathPattern: "/.*", never: true }
+
+  - name: atLeast counts retried calls
+    mocks:
+      - { bean: dspClient, method: requestAds, throws: { type: com.yamltestkit.selftest.app.ApiException, args: [ 500, boom ] } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - { bean: dspClient, method: requestAds, atLeast: 2 }
+        - { bean: dspClient, method: requestAds, times: 2 }
+        - { service: tracking, method: POST, path: /urls, never: true }

@@ -1,0 +1,22 @@
+# Application-level defaults applied before every case (imitates AbstractSpringBootIT's lenient stubs): an ad request
+# finds placement 14019 with four slots and the dsp provider, keeps all its terms, passes enrichment unchanged and gets
+# two DSP ads; the tracking service answers every item it is sent with a click URL built from the item's id.
+mocks:
+  - { bean: reportStore, method: count, returns: 7 }
+  - { bean: optionalFeature, method: name, returns: mocked }
+  - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, availableSlots: 4 } } }
+  - { bean: innerClient, method: blockedTerms, returns: [ ] }
+  - { bean: pricingEnricher, method: enrich, returnsArg: 0 }
+  - { bean: providerRegistry, method: find, args: [ dsp ], returns: { name: dsp, maxAds: 4 } }
+  - { bean: dspClient, method: requestAds, returns: { file: data/dsp-two-ads.json } }
+http:
+  - service: tracking
+    method: POST
+    path: /urls
+    response:
+      status: 200
+      headers: { Content-Type: application/json }
+      template: true
+      body: >-
+        {"urls": [{{#each (jsonPath request.body '$.items') as |item|}}{{#unless @first}}, {{/unless}}{"id":
+        "{{item.id}}", "clickUrl": "https://click.example/{{item.id}}"}{{/each}}]}

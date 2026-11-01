@@ -1,0 +1,19 @@
+defaults:
+  call:
+    http: GET /is
+cases:
+  - name: bean call over an http default
+    call:
+      bean: feedCache
+      method: size
+
+  - name: deps over an http default
+    call:
+      deps:
+        limits: { value: { max: 1 } }
+
+  - name: null http beside a bean over an http default
+    call:
+      http: null
+      bean: feedCache
+      method: size

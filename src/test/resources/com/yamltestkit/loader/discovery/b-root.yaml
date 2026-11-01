@@ -1,0 +1,5 @@
+cases:
+  - name: unit case
+    call: { class: com.example.Unit, method: run }
+  - name: http case
+    call: { http: GET /is }

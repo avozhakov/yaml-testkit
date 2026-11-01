@@ -1,0 +1,14 @@
+# Calls whose kind and fields don't fit together; the loader rejects each case on its own.
+cases:
+  - name: deps on a bean call
+    call:
+      bean: feedCache
+      method: size
+      deps:
+        limits: { value: { max: 1 } }
+
+  - name: body on a class call
+    call: { class: com.yamltestkit.selftest.unit.Slugs, method: slug, args: [ Tent ], body: { a: 1 } }
+
+  - name: call without a kind
+    call: { method: size }

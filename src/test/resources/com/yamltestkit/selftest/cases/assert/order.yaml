@@ -1,0 +1,36 @@
+# Exact order versus any order (row 34; model: ExpandedQueryTermRestorationIT, whose DSP stub returns the ads in
+# reverse order — "restoration must not depend on the order DSP returns ads in" — and which then checks the ids with
+# containsExactlyInAnyOrderElementsOf, while ranking checks use containsExactly). The response keeps the DSP order.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: lamp } }
+  expect: { status: 200 }
+cases:
+  - name: ads in the DSP order
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: l1, title: Floor lamp, section: top, price: 80, landingUrl: "https://shop.example/l1" }
+            - { id: l2, title: Desk lamp, section: side, price: 30, landingUrl: "https://shop.example/l2" }
+            - { id: l3, title: Wall lamp, section: side, price: 45, landingUrl: "https://shop.example/l3" }
+    expect:
+      assert:
+        - { path: "$.ads[*].title", containsExactly: [ Floor lamp, Desk lamp, Wall lamp ] }
+        - { path: "$.ads[*].section", containsInAnyOrder: [ side, top, side ] }
+        - { path: "$.ads[*].id", containsInAnyOrder: [ l3, l1, l2 ] }
+
+  - name: the same ads returned in reverse order
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: l3, title: Wall lamp, section: side, price: 45, landingUrl: "https://shop.example/l3" }
+            - { id: l2, title: Desk lamp, section: side, price: 30, landingUrl: "https://shop.example/l2" }
+            - { id: l1, title: Floor lamp, section: top, price: 80, landingUrl: "https://shop.example/l1" }
+    expect:
+      assert:
+        - { path: "$.ads[*].title", containsExactly: [ Wall lamp, Desk lamp, Floor lamp ] }
+        - { path: "$.ads[*].id", containsInAnyOrder: [ l1, l2, l3 ] }
+        - { path: "$.ads[*].section", containsInAnyOrder: [ top, side, side ] }

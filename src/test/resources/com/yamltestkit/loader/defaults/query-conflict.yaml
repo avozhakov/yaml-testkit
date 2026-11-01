@@ -1,0 +1,7 @@
+defaults:
+  call:
+    http: GET /ads
+    query: { plid: 14019 }
+cases:
+  - name: rawQuery over a default query
+    call: { rawQuery: "plid=14019&qt=%5B%22a%22%5D" }

@@ -1,0 +1,21 @@
+# Configuration file of the self-test fixture application, loaded through spring.config.name / location set in
+# cases/_context.yaml. The cases check that _context.yaml properties win over these values.
+fixture:
+  mode: file
+  source: selftest.yml
+  feed:
+    # Short on purpose: cases/_context.yaml pushes it out, otherwise the schedule would reload feeds during the cases.
+    reload-interval: 100
+    async-reload-delay: 100ms
+  dsp:
+    retries: 1
+  events:
+    response-delay: 40ms
+partner:
+  base-url: http://localhost:1
+  timeout: 1s
+  retries: 1
+tracking:
+  host: localhost
+  port: 1
+  timeout: 1s

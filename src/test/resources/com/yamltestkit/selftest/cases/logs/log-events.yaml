@@ -1,0 +1,43 @@
+# Log capture of a WARN naming the feed (row 46; model: UnmappableFeedIdIntegrationTest).
+cases:
+  - name: warning logged for an unmappable feed row
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { id: 1 }, { name: feed-42 } ] }
+    call: { bean: feedCache, method: reload }
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: "feed-42", times: 1 }
+
+  - name: warning counted once when its package logger is named too
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { name: feed-43 } ] }
+    call: { bean: feedCache, method: reload }
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app, level: WARN, contains: "feed-43", times: 1 }
+
+  - name: no warning for mappable rows
+    call: { bean: feedCache, method: reload }
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, absent: true }
+
+  - name: each unmappable row logged once
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { name: feed-44 }, { id: 2 }, { name: feed-45 } ] }
+    call: { bean: feedCache, method: reload }
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: "unmappable feed row", times: 2 }
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: "feed-45", times: 1 }
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: ERROR, absent: true }
+
+  - name: a WARN from a request flow on another class
+    mocks:
+      - { bean: dspClient, method: requestAds, throws: { type: com.yamltestkit.selftest.app.ApiException, args: [ 502, bad gateway ] } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      logs:
+        - { logger: com.yamltestkit.selftest.app.ads.DspCaller, level: WARN, contains: "failed with code 502", times: 2 }
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, absent: true }

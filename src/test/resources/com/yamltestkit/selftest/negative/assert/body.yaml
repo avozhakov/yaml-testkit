@@ -1,0 +1,54 @@
+# The body compare modes and the bodyText matchers, each on data that must make it fail. GET /golden returns
+# {"version":"3.0","request_id":"golden","items":[{"id":"fallback-1","title":"Running shoes"}]}.
+defaults:
+  call: { http: GET /golden }
+cases:
+  - name: status
+    expect:
+      status: 201
+
+  - name: response header
+    expect:
+      headers: { Content-Type: text/plain }
+
+  - name: body default mode
+    expect:
+      body: { version: "3.0", items: [ { id: fallback-2 } ] }
+
+  - name: body strict mode
+    expect:
+      body:
+        value: { version: "3.0", request_id: golden, items: [ { id: fallback-1 } ] }
+        mode: strict
+
+  - name: body exact mode
+    expect:
+      body:
+        mode: exact
+        value: '{"version": "3.0", "request_id": "golden", "items": [{"id": "fallback-1", "title": "Running shoes"}]}'
+
+  - name: body ignore keeps other differences
+    expect:
+      body:
+        value: { version: "9.9", request_id: other }
+        ignore: [ "$.request_id" ]
+
+  - name: bodyText equals
+    expect:
+      bodyText: { equals: '{"version":"3.0"}' }
+
+  - name: bodyText contains
+    expect:
+      bodyText: { contains: [ fallback-1, asin ] }
+
+  - name: bodyText notContains
+    expect:
+      bodyText: { notContains: Running shoes }
+
+  - name: bodyText startsWith
+    expect:
+      bodyText: { startsWith: "[" }
+
+  - name: bodyText matches
+    expect:
+      bodyText: { matches: '^\[.*\]$' }

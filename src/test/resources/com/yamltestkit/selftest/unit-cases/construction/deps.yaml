@@ -1,0 +1,46 @@
+# Unit call construction: deps matched by parameter name or by type; unlisted parameters are plain mocks.
+defaults:
+  call:
+    class: com.yamltestkit.selftest.unit.AdTitleFormatter
+    method: format
+    args: [ shop, [ a, b, c ] ]
+
+cases:
+  - name: unlisted dependency is a mock returning defaults
+    call: { deps: { limits: { value: { max: 2 } } } }
+    expect:
+      returns: { ctaId: 0, titles: [ a, b ] }
+
+  - name: dependency matched by simple type name
+    call:
+      deps:
+        CtaIdConverter: { stubs: [ { method: convert, returns: 42 } ] }
+        limits: { value: { max: 3 } }
+    expect:
+      returns: { ctaId: 42, titles: [ a, b, c ] }
+
+  - name: dependency matched by qualified type name
+    call:
+      deps:
+        com.yamltestkit.selftest.unit.CtaIdConverter: { stubs: [ { method: convert, args: [ shop ], returns: 7 } ] }
+        com.yamltestkit.selftest.unit.Limits: { value: { max: 1 } }
+    expect:
+      returns: { ctaId: 7, titles: [ a ] }
+
+  - name: dependency matched by parameter name
+    call:
+      deps:
+        ctaIds: { stubs: [ { method: convert, args: [ shop ], returns: 8 } ] }
+        limits: { value: { max: 1 } }
+    expect:
+      returns: { ctaId: 8, titles: [ a ] }
+
+  - name: real dependency built by the same rules
+    call:
+      class: com.yamltestkit.selftest.unit.PriceQuote
+      method: quote
+      args: [ 100, eu ]
+      deps:
+        taxPolicy: { real: true }
+    expect:
+      returns: 100.0

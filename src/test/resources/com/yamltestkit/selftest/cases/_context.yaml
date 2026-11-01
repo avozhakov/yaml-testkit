@@ -1,0 +1,47 @@
+application: com.yamltestkit.selftest.app.SelftestApplication
+properties:
+  # Keep any other application*.yml on the classpath out: the fixture reads selftest.yml only.
+  spring.config.name: selftest
+  spring.config.location: classpath:/com/yamltestkit/selftest/app/
+  # A service's logback-test.xml may put the root logger at ERROR; the log cases need the fixture's WARN / INFO events.
+  logging.level.com.yamltestkit.selftest: INFO
+  fixture.mode: context
+  fixture.optional-feature: "on"
+  # Silences the feed reload schedule (selftest.yml runs it every 100 ms); the cases reload through the scheduler bean.
+  fixture.feed.reload-interval: 3600000
+  partner.base-url: ${wiremock.partner.url}
+  tracking.host: ${wiremock.tracking.host}
+  tracking.port: ${wiremock.tracking.port}
+services: [ partner, tracking ]
+# Longer than fixture.events.response-delay, so a case's delayed response event lands before the next case resets.
+settleMs: 100
+mockBeans:
+  - name: feedRepository
+    stubs:
+      - { method: findAll, returns: [ { id: 1 }, { id: 2 } ] }
+  - name: reportStore
+    type: com.yamltestkit.selftest.app.ReportStore
+    primary: true
+    stubs:
+      - { method: count, returns: 5 }
+  # The Kafka boundary (imitates KafkaDataLoggerClient): never real.
+  - eventLogger
+spyBeans: [ auditService ]
+valueBeans:
+  - name: exchangeSources
+    type: com.yamltestkit.selftest.app.ExchangeSources
+    value: { sources: [] }
+    primary: true
+variants:
+  eco:
+    properties: { fixture.mode: eco, fixture.optional-feature: "off" }
+  # The retry count set by property (row 28; model: a retry count in @TestPropertySource): no partner search retry.
+  no-retry:
+    properties: { partner.retries: 0 }
+  # A feed table that holds an unmappable row from the first boot on (row 49; model: UnmappableFeedIdIntegrationTest).
+  # Only freshContext cases use it, so each of them boots it cold.
+  unmappable-feed:
+    mockBeans:
+      - name: feedRepository
+        stubs:
+          - { method: findAll, returns: [ { id: 1 }, { name: feed-77 } ] }

@@ -1,0 +1,47 @@
+# A raw, pre-encoded query sent as written (row 2; model: QueryTermAsReceivedIT, whose client builds the query string
+# itself): the qt reaches the DSP as received, decoded exactly once by the servlet container.
+defaults:
+  call: { http: GET /ads }
+cases:
+  - name: raw query is sent as written
+    call: { http: GET /echo, rawQuery: "plid=123&qt=%5B%22a%22%5D" }
+    expect:
+      body: { query: "plid=123&qt=%5B%22a%22%5D" }
+      assert:
+        - { path: "$.params.qt", equals: '["a"]' }
+
+  - name: an encoded plus and percent stay literal after one decode
+    call: { rawQuery: "plid=14019&qt=nad%2B1600%20100%25daunen&v=2.0" }
+    expect:
+      status: 200
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].queryTerm", equals: "nad+1600 100%daunen" }
+
+  - name: an unencoded plus is decoded as a space
+    call: { rawQuery: "plid=14019&qt=3+%2B+2+sofa+set&v=2.0" }
+    expect:
+      status: 200
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].queryTerm", equals: "3 + 2 sofa set" }
+
+  - name: an encoded JSON array is split into its terms
+    call: { rawQuery: "plid=14019&v=2.1&qt=%5B%22Yoga%20Tab%2098%25DCI-P3%22%2C%22Copilot%2B%20PC%22%5D" }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads[*].qt", containsExactly: [ shoes, shoes ] }
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].queryTerm", equals: '["Yoga Tab 98%DCI-P3","Copilot+ PC"]' }
+            - { path: "$[0].args[0].queryTerms", containsExactly: [ "Yoga Tab 98%DCI-P3", "Copilot+ PC" ] }

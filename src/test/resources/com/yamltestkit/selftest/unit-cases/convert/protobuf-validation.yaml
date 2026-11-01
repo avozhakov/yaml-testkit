@@ -1,0 +1,34 @@
+# Row 15 at unit level: a protobuf message (Struct stands in for a generated message) wrapped in a vavr
+# Validation, converted from YAML for a dependency stub and back to JSON for expectations.
+defaults:
+  call:
+    class: com.yamltestkit.selftest.unit.PlacementService
+    args: [ 13038 ]
+    deps:
+      placementAccess:
+        stubs:
+          - method: getPlacement
+            args: [ 13038 ]
+            returns: { valid: { id: 13038, availableSlots: 50 } }
+          - method: getPlacement
+            args: [ 404 ]
+            returns: { invalid: no placement }
+
+cases:
+  - name: stubbed Validation of a protobuf message
+    call: { method: availableSlots }
+    expect:
+      returns: 50
+
+  - name: invalid Validation
+    call: { method: availableSlots, args: [ 404 ] }
+    expect:
+      returns: -1
+
+  - name: returned Validation converted to JSON
+    call: { method: placement }
+    expect:
+      returns: { valid: { id: 13038, availableSlots: 50 } }
+      assert:
+        - { path: "$.valid.availableSlots", equals: 50 }
+        - { path: "$.invalid", absent: true }

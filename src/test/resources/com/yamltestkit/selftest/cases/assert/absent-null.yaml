@@ -1,0 +1,59 @@
+# Absent key versus null value (row 35; model: ProductAdIdentifierNotInResponseIT, which asserts that no product ad
+# exposes asin / gtin with `ad.has(field)` being false). The ad response omits a null asin but always writes gtin,
+# as null when the DSP sent none; the captured AdRequest omits a null publisher.competitivenessId.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+  expect: { status: 200 }
+cases:
+  - name: a field the serializer omits and a field written as null
+    expect:
+      assert:
+        - { path: "$.ads[0].asin", absent: true }
+        - { path: "$.ads[0].asin", isNull: true }
+        - { path: "$.ads[1].asin", exists: true }
+        - { path: "$.ads[1].asin", notNull: true }
+        - { path: "$.ads[0].gtin", exists: true }
+        - { path: "$.ads[0].gtin", isNull: true }
+        - { path: "$.ads", all: { path: "$.gtin", exists: true } }
+        - { path: "$.ads[*].asin", exists: true }
+        - { path: "$.ads[?(@.id == 'p1')]", none: { path: "$.asin", exists: true } }
+
+  - name: isNull on a captured field the serializer omits
+    expect:
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].publisher.competitivenessId", isNull: true }
+            - { path: "$[0].args[0].publisher.competitivenessId", absent: true }
+            - { path: "$[0].args[0].publisher.placementId", notNull: true }
+
+  - name: no ad exposes a product identifier the DSP did not send
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: n1, title: Nike Pegasus, section: top, price: 130, landingUrl: "https://shop.example/n1" }
+            - { id: n2, title: Nike Vomero, section: side, price: 150, landingUrl: "https://shop.example/n2" }
+    call: { http: GET /ads-private }
+    expect:
+      assert:
+        - { path: "$.ads", size: 2 }
+        - { path: "$.ads", none: { path: "$.asin", exists: true } }
+        - { path: "$.ads", all: { path: "$.gtin", isNull: true } }
+        - { path: "$.ads[*].asin", absent: true }
+
+  - name: a gtin the DSP sent is written
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: g1, title: Watch, section: top, price: 300, gtin: "0789313084685", landingUrl: "https://shop.example/g1" }
+    expect:
+      assert:
+        - { path: "$.ads[0].gtin", equals: "0789313084685" }
+        - { path: "$.ads[0].gtin", notNull: true }
+        - { path: "$.ads[0].asin", absent: true }

@@ -1,0 +1,31 @@
+# Log and context expectations on data that must make them fail. A feed reload with a row that has no id logs
+# `WARN unmappable feed row ...` from FeedCache.
+defaults:
+  mocks:
+    - { bean: feedRepository, method: findAll, returns: [ { id: 1 }, { name: feed-42 } ] }
+  call: { bean: feedCache, method: reload }
+cases:
+  - name: expected log event missing
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: feed-99 }
+
+  - name: log event count differs
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: feed-42, times: 2 }
+
+  - name: log event expected absent
+    expect:
+      logs:
+        - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, absent: true }
+
+  - name: bean expected present
+    expect:
+      context:
+        beans: { present: [ feedCache, ebayConnector ] }
+
+  - name: bean type expected absent
+    expect:
+      context:
+        beanTypes: { absent: [ com.yamltestkit.selftest.app.FeedCache ] }

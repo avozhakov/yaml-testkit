@@ -1,0 +1,6 @@
+# A call with two call kinds: the loader rejects this case.
+name: http and bean in one call
+call:
+  http: GET /golden
+  bean: feedCache
+  method: size

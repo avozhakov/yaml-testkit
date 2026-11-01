@@ -1,0 +1,17 @@
+# Two call kinds in one call object: only that case fails, the other cases of the file still load.
+cases:
+  - name: valid call
+    call: { http: GET /is }
+
+  - name: two kinds in one call
+    call:
+      http: GET /is
+      bean: feedCache
+      method: size
+
+  - name: two kinds in a step's call
+    steps:
+      - name: first
+        call: { http: GET /is }
+      - name: second
+        call: { bean: feedCache, class: com.example.Unit, method: size }

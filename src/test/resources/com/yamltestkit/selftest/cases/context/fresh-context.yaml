@@ -1,0 +1,72 @@
+# Cold restart per case and ordered cases (row 49; model: UnmappableFeedIdIntegrationTest, @DirtiesContext after the
+# first ordered test so the second gets a genuine second boot, checked through getStartupDate()). StartupInfo counts
+# calls per instance, so a count of 1 shows a newly started context. Cases of a file run in file order.
+cases:
+  - name: first hit in the shared context
+    call: { bean: startupInfo, method: hit }
+    expect: { returns: 1 }
+  - name: shared context is reused
+    call: { bean: startupInfo, method: hit }
+    expect: { returns: 2 }
+  - name: fresh context starts over
+    freshContext: true
+    call: { bean: startupInfo, method: hit }
+    expect: { returns: 1 }
+  - name: shared context is still in use after a fresh one
+    call: { bean: startupInfo, method: hit }
+    expect: { returns: 3 }
+
+  - name: a fresh case sees the calls its own context made while starting
+    freshContext: true
+    call: { bean: feedCache, method: size }
+    expect:
+      returns: 2
+      verify:
+        - { bean: feedRepository, method: findAll, times: 1 }
+
+  - name: properties Boot reads before the context exists take effect
+    freshContext: true
+    steps:
+      - name: spring.config.name keeps the host application's configuration out
+        call: { bean: environment, method: getProperty, paramTypes: [ java.lang.String ], args: [ app.datacenter ] }
+        expect: { returns: null }
+      - name: the fixture's own configuration file is loaded instead
+        call: { bean: modeService, method: source }
+        expect: { returns: selftest.yml }
+      - name: logging.level lets the fixture's INFO events through the host's ERROR root
+        call: { bean: auditService, method: recordResponse, args: [ /fresh, 3 ] }
+        expect:
+          logs:
+            - { logger: com.yamltestkit.selftest.app.AuditService, level: INFO, contains: "/fresh served 3 ads", times: 1 }
+
+  - name: first boot over an unmappable feed row
+    context: unmappable-feed
+    freshContext: true
+    steps:
+      - name: boot-time load
+        call: { bean: feedCache, method: size }
+        expect:
+          returns: 2
+          verify:
+            - { bean: feedRepository, method: findAll, times: 1 }
+          logs:
+            - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: "feed-77", times: 1 }
+      - name: the mappable row is served
+        call: { bean: feedCache, method: find, args: [ 1 ] }
+        expect: { returns: { id: 1 } }
+
+  - name: second boot over the same rows is a cold boot too
+    context: unmappable-feed
+    freshContext: true
+    steps:
+      - name: new context
+        call: { bean: startupInfo, method: hit }
+        expect: { returns: 1 }
+      - name: boot-time load
+        call: { bean: feedCache, method: size }
+        expect:
+          returns: 2
+          verify:
+            - { bean: feedRepository, method: findAll, times: 1 }
+          logs:
+            - { logger: com.yamltestkit.selftest.app.FeedCache, level: WARN, contains: "feed-77", times: 1 }

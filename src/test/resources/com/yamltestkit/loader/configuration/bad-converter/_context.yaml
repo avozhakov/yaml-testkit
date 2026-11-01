@@ -1,0 +1,2 @@
+application: com.example.App
+converters: [ java.lang.String ]

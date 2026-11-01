@@ -1,0 +1,9 @@
+{
+  "intent": {
+    "prompt": "running shoes",
+    "ad_count": 2,
+    "chat": { "id": "chat-1", "topic": "Running Shoes" }
+  },
+  "user": { "geo": { "country_code": "US" }, "locale": "en-US" },
+  "meta": { "request_id": "req-1", "mode": "standard", "version": "3.0" }
+}

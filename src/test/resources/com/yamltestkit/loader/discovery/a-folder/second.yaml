@@ -1,0 +1,7 @@
+cases:
+  - name: third
+    call: { bean: feedCache, method: size }
+  - name: first
+    call: { bean: feedCache, method: size }
+  - name: second
+    call: { class: com.example.Unit, method: run }

@@ -1,0 +1,141 @@
+# Stateful HTTP answers and retries (rows 19, 28; model: TrackingUrlResilienceIT, whose stub fails once and then
+# answers, `verify(…, times(2))` counting the attempts, with the retry count and timeout taken from properties). The
+# partner client retries a 5xx status, an I/O error or a timeout `partner.retries` times (1 in selftest.yml) within
+# `partner.timeout` (1s); `sequence: true` answers consecutive requests in order, the last answer repeating. No file
+# `defaults.call`: a file default call would also go into the multi-step case.
+cases:
+  - name: a 503 is retried and the second answer serves
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        sequence: true
+        responses:
+          - { status: 503 }
+          - status: 200
+            headers: { Content-Type: application/json }
+            body: { items: [ { id: i1, title: Pegasus 41 } ] }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-retry } }
+    expect:
+      status: 200
+      body: { request_id: req-retry, items: [ { id: i1, title: Pegasus 41 } ] }
+      verify:
+        - service: partner
+          method: POST
+          path: /search
+          times: 2
+          assert:
+            - { path: "$[*].body.query", containsExactly: [ running shoes, running shoes ] }
+
+  - name: the last answer of a sequence repeats
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        sequence: true
+        responses:
+          - { status: 503 }
+          - { status: 200, headers: { Content-Type: application/json }, body: { items: [ { id: i2, title: Ghost 16 } ] } }
+    steps:
+      - name: retried call
+        call:
+          http: POST /discover
+          headers: { x-discover-version: "3.0" }
+          body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-retry } }
+        expect:
+          status: 200
+          verify: [ { service: partner, method: POST, path: /search, times: 2 } ]
+      - name: later call
+        call:
+          http: POST /discover
+          headers: { x-discover-version: "3.0" }
+          body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-later } }
+        expect:
+          status: 200
+          assert: [ { path: "$.items[*].id", containsExactly: [ i2 ] } ]
+          verify: [ { service: partner, method: POST, path: /search, times: 3 } ]
+
+  - name: a connection reset is retried
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        sequence: true
+        responses:
+          - { fault: CONNECTION_RESET_BY_PEER }
+          - { status: 200, headers: { Content-Type: application/json }, body: { items: [ { id: i3, title: Vomero 18 } ] } }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-retry } }
+    expect:
+      status: 200
+      assert: [ { path: "$.items[*].id", containsExactly: [ i3 ] } ]
+      verify: [ { service: partner, method: POST, path: /search, times: 2 } ]
+      logs:
+        - { logger: com.yamltestkit.selftest.app.PartnerClient, level: WARN, contains: "attempt 1 of 2 failed", times: 1 }
+
+  - name: an answer slower than the timeout is retried
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        sequence: true
+        responses:
+          - { status: 200, delayMs: 1500, body: { items: [ { id: late, title: Too late } ] } }
+          - { status: 200, headers: { Content-Type: application/json }, body: { items: [ { id: i4, title: In time } ] } }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-retry } }
+    expect:
+      status: 200
+      assert: [ { path: "$.items[*].id", containsExactly: [ i4 ] } ]
+      verify: [ { service: partner, method: POST, path: /search, times: 2 } ]
+      logs:
+        - { logger: com.yamltestkit.selftest.app.PartnerClient, level: WARN, contains: "HttpTimeoutException", times: 1 }
+
+  - name: with the retry count set to 0 by a variant the first failure is final
+    context: no-retry
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        sequence: true
+        responses:
+          - { status: 503 }
+          - { status: 200, headers: { Content-Type: application/json }, body: { items: [ ] } }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-retry } }
+    expect:
+      status: 500
+      assert: [ { path: "$.error.code", equals: internal_error } ]
+      verify: [ { service: partner, method: POST, path: /search, times: 1 } ]
+
+  - name: unique ids generated by the template
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        response:
+          status: 200
+          headers: { Content-Type: application/json }
+          template: true
+          body: >-
+            {"items": [{"id": "{{randomValue type='UUID'}}", "title": "first"},
+            {"id": "{{randomValue type='UUID'}}", "title": "second"}]}
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: running shoes, ad_count: 2 }, meta: { request_id: req-ids } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.items", size: 2 }
+        - { path: "$.items[*].id", unique: true }
+        - { path: "$.items", all: { path: "$.id", matches: '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$' } }

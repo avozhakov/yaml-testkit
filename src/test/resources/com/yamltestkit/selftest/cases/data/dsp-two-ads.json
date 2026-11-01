@@ -1,0 +1,8 @@
+{
+  "ads": [
+    { "id": "p1", "title": "Red shoes", "qt": "shoes", "section": "top", "price": 120,
+      "landingUrl": "https://shop.example/p1" },
+    { "id": "p2", "title": "Blue shoes", "qt": "shoes", "section": "side", "price": 80, "asin": "B00SHOES",
+      "landingUrl": "https://shop.example/p2" }
+  ]
+}

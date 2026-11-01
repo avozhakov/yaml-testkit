@@ -1,0 +1,44 @@
+# POST of a JSON body with headers to an endpoint that completes asynchronously (row 3; model:
+# AbstractDiscoverMultiFeedIT.callDiscover, which needs asyncStarted + asyncDispatch under MockMvc). Over a real port
+# the engine just receives the final response.
+defaults:
+  http:
+    - service: partner
+      method: POST
+      path: /search
+      body: { query: running shoes, limit: 2 }
+      response:
+        status: 200
+        headers: { Content-Type: application/json }
+        body: { items: [ { id: i1, title: Pegasus 41 }, { id: i2, title: Ghost 16 } ] }
+  call:
+    http: POST /discover
+    headers: { x-discover-version: "3.0" }
+cases:
+  - name: async discover answers with the partner's items
+    call: { body: { file: data/discover-request.json } }
+    expect:
+      status: 200
+      body:
+        version: "3.0"
+        request_id: req-1
+        items: [ { id: i1, title: Pegasus 41 }, { id: i2, title: Ghost 16 } ]
+      verify:
+        - service: partner
+          method: POST
+          path: /search
+          times: 1
+          assert:
+            - { path: "$[0].body", equals: { query: running shoes, limit: 2 }, mode: strict }
+            - { path: "$[0].headers.content-type", equals: application/json }
+
+  - name: unknown request fields are accepted, not rejected
+    call:
+      body:
+        intent: { prompt: running shoes, ad_count: 2, some_future_spec_field: { nested: true } }
+        meta: { request_id: req-2 }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.request_id", equals: req-2 }
+        - { path: "$.items", size: 2 }

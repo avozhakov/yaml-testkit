@@ -1,0 +1,9 @@
+name: null is kept
+call:
+  bean: providers
+  method: find
+  args: [ null, amazon ]
+mocks:
+  - { bean: providers, method: find, args: [ ebay ], returns: null }
+expect:
+  returns: null

@@ -1,0 +1,88 @@
+# Deliberately schema-invalid in places (malformed `http`): CaseFileLoaderTest loads it with a mocked schema, so
+# every case reaches the loader's own rules.
+cases:
+  - name: class case with mocks
+    call: { class: com.example.Unit, method: run }
+    mocks: [ someBean ]
+
+  - name: class case with context
+    call: { class: com.example.Unit, method: run }
+    context: ebay-off
+
+  - name: class case with freshContext
+    call: { class: com.example.Unit, method: run }
+    freshContext: true
+
+  - name: class step with http stub
+    steps:
+      - name: only
+        call: { class: com.example.Unit, method: run }
+        http:
+          - { service: partner, path: /bid, response: { status: 200 } }
+
+  - name: returns on http call
+    call: { http: GET /is }
+    expect: { returns: 1 }
+
+  - name: status on bean call
+    call: { bean: feedCache, method: size }
+    expect: { status: 200 }
+
+  - name: verify bean in class call
+    call: { class: com.example.Unit, method: run }
+    expect:
+      verify:
+        - { bean: auditService, method: log, times: 1 }
+
+  - name: verify dep in http call
+    call: { http: GET /is }
+    expect:
+      verify:
+        - { dep: converter, method: convert, times: 1 }
+
+  - name: mixed case may stub beans
+    mocks: [ someBean ]
+    steps:
+      - name: unit
+        call: { class: com.example.Unit, method: run }
+      - name: endpoint
+        call: { http: GET /is }
+
+  - name: http without a path
+    call: { http: GET }
+
+  - name: http with an unknown method
+    call: { http: FETCH /is }
+
+  - name: http with a query in the path
+    call: { http: "GET /a?b=1" }
+
+  - name: http with a trailing space
+    call: { http: "GET /ads " }
+
+  - name: http with a lowercase method
+    call: { http: get /ads }
+
+  - name: deps on a bean call
+    call:
+      bean: feedCache
+      method: size
+      deps:
+        limits: { value: { max: 1 } }
+
+  - name: body on a class call
+    call: { class: com.example.Unit, method: run, body: { a: 1 } }
+
+  - name: query on a bean call
+    call: { bean: feedCache, method: size, query: { plid: 1 } }
+
+  - name: call without a kind
+    call: { method: run }
+
+  - name: bean call without a method
+    call: { bean: feedCache }
+
+  - name: step call without a kind
+    steps:
+      - name: only
+        call: { query: { plid: 1 } }

@@ -1,0 +1,2 @@
+name: deep case
+call: { http: GET /deep }

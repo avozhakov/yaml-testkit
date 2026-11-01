@@ -1,0 +1,6 @@
+# Mocks modeService in the mock-spy-conflict variant, while mock-spy-conflict-spy.yaml spies it there.
+name: mocks the bean
+context: mock-spy-conflict
+mocks:
+  - { bean: modeService, method: mode, returns: mocked }
+call: { bean: modeService, method: mode }

@@ -1,0 +1,62 @@
+# Stub layers (rows 23, 53; models: feature tests re-stubbing AbstractSpringBootIT's lenient defaults, and a subclass
+# overriding seedPlacement()): _defaults.yaml, then the file's `defaults`, then the case. A later layer replaces the
+# earlier stub of the same bean + method + args without invoking it, and replaces the whole value: there is no deep
+# merge of a seed.
+defaults:
+  mocks:
+    # Over _defaults.yaml's four slots: a placement with two.
+    - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, availableSlots: 2 } } }
+    # Throws if it ever runs, so a case replacing it proves the replaced answer is never invoked.
+    - bean: innerClient
+      method: blockedTerms
+      throws: { type: java.lang.IllegalStateException, message: the replaced default ran }
+  call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+cases:
+  - name: the file layer seed caps the DSP request
+    mocks:
+      - { bean: innerClient, method: blockedTerms, returns: [ ] }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 2 }
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].maxAds", equals: 2 }
+            - { path: "$[0].args[0].publisher.competitivenessId", isNull: true }
+
+  - name: the case seed replaces the file seed
+    mocks:
+      - { bean: innerClient, method: blockedTerms, returns: [ ] }
+      - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, availableSlots: 1, competitivenessId: c-9 } } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 1 }
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].maxAds", equals: 1 }
+            - { path: "$[0].args[0].publisher.competitivenessId", equals: c-9 }
+
+  - name: a case seed is not merged with the file seed
+    mocks:
+      - { bean: innerClient, method: blockedTerms, returns: [ ] }
+      - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, competitivenessId: c-9 } } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 0 }
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].maxAds", equals: 0 } ] }
+
+  - name: the file layer answers where the case replaces nothing
+    expect:
+      status: 500
+      verify:
+        - { bean: innerClient, method: blockedTerms, times: 1 }
+        - { bean: dspClient, method: requestAds, never: true }

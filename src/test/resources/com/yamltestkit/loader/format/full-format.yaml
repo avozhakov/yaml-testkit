@@ -1,0 +1,105 @@
+defaults:
+  context: ebay-off
+cases:
+  - name: every http feature
+    freshContext: true
+    mocks:
+      - placementAccess
+      - bean: providers
+        method: find
+        paramTypes: [ java.lang.String ]
+        args: [ amazon ]
+        returns: { file: data/provider.json }
+      - { bean: enricher, method: enrich, args: [ "#any" ], returnsArg: 0 }
+      - bean: partnerApi
+        method: call
+        args: [ { anyOf: com.example.Request } ]
+        answers:
+          - { throws: { type: com.example.ApiException, args: [ 500, boom ] } }
+          - { throws: { type: com.example.ApiException, cause: { type: java.net.http.HttpTimeoutException, message: t/o } } }
+          - { returns: { file: data/provider.json } }
+    spies: [ auditService ]
+    http:
+      - service: partner
+        method: POST
+        path: /bid
+        headers: { x-key: abc }
+        body: { imp: [] }
+        response: { status: 200, body: { ok: true }, delayMs: 10, template: true }
+      - service: partner
+        pathPattern: /retry/.*
+        sequence: true
+        responses:
+          - { status: 503 }
+          - { status: 200, fault: CONNECTION_RESET_BY_PEER }
+    steps:
+      - name: call
+        call:
+          http: GET /is
+          query: { plid: 123, qt: "shoes & socks", tag: [ a, b ] }
+          headers: { x-discover-version: "3.0" }
+        expect:
+          status: 200
+          headers: { Content-Type: application/json }
+          bodyText: { notContains: [ asin, gtin ], startsWith: "{" }
+          assert:
+            - { path: "$.ads[?(@.qt == 'shoes')]", size: 2 }
+            - { path: "$.ads", none: { path: "$.asin", exists: true } }
+            - { path: "$.gtin", absent: true }
+            - { path: "$.diag", parseJson: true, mode: strict, equals: { a: 1 } }
+            - { path: "$.ads[*].title", containsExactly: [ a, b ] }
+            - { path: "$.price", gte: 1, lte: 10.5 }
+            - { path: "$.ids", unique: true, notNull: true }
+            - { path: "$.name", startsWith: ad, matches: "ad-\\d+" }
+          verify:
+            - bean: kafkaLogger
+              method: send
+              argType: { index: 1, type: com.example.ResponseMessage }
+              times: 1
+              within: 3s
+              as: logged
+            - { bean: amazonConnector, method: fetch, never: true }
+            - { bean: trackingProvider, noInteractions: true }
+            - service: partner
+              method: POST
+              path: /bid
+              atLeast: 1
+              assert:
+                - { path: "$[0].body.imp", size: 3 }
+          logs:
+            - { logger: com.example.FeedLoader, level: WARN, contains: "feed 42", times: 1 }
+            - { logger: com.example, level: ERROR, absent: true }
+          context:
+            beans: { present: [ feedCache ] }
+            beanTypes: { absent: [ com.example.EbayConnector ] }
+      - name: poll
+        call: { bean: feedCache, method: size }
+        expect:
+          returns: 3
+          within: 30s
+          every: 500ms
+
+  - name: raw query and exceptions
+    context: default-ish
+    call:
+      http: GET /is
+      rawQuery: "plid=123&qt=%5B%22a%22%5D"
+    expect:
+      body: { value: { ads: [] }, mode: strict }
+
+  - name: unit with deps
+    context: null
+    call:
+      class: com.example.Converter
+      method: convert
+      paramTypes: [ java.lang.String ]
+      args: [ x ]
+      constructor: [ com.example.CtaIdConverter, com.example.Limits ]
+      deps:
+        CtaIdConverter: { stubs: [ { method: convert, returns: 42 } ] }
+        limits: { value: { max: 10 } }
+        clock: { real: true }
+    expect:
+      throws: { type: java.lang.IllegalStateException, message: db down }
+      verify:
+        - { dep: CtaIdConverter, method: convert, args: [ x ], times: 1 }

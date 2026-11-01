@@ -1,0 +1,41 @@
+# thenThrow with typed constructors and causes (row 20; model: TrackingUrlResilienceIT): the DSP client throws the
+# checked ApiException built from `args` or around a `cause`; the flow retries (fixture.dsp.retries = 1) and degrades
+# to a 200 without ads, naming the failure.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: camera } }
+  expect: { status: 200 }
+cases:
+  - name: a service error on every attempt degrades gracefully
+    mocks:
+      - { bean: dspClient, method: requestAds, throws: { type: com.yamltestkit.selftest.app.ApiException, args: [ 500, boom ] } }
+    expect:
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings", containsExactly: [ "dsp failed: 500 boom" ] }
+      verify:
+        - { bean: dspClient, method: requestAds, times: 2 }
+
+  - name: a timeout cause degrades the same way
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        throws:
+          type: com.yamltestkit.selftest.app.ApiException
+          cause: { type: java.net.http.HttpTimeoutException, message: read timed out }
+    expect:
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings[0]", startsWith: "dsp failed: 0 " }
+        - { path: "$.warnings[0]", contains: "caused by HttpTimeoutException(read timed out)" }
+      verify:
+        - { bean: dspClient, method: requestAds, times: 2 }
+
+  - name: no ads skips the tracking call
+    mocks:
+      - { bean: dspClient, method: requestAds, returns: { ads: [ ] } }
+    expect:
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings", size: 0 }
+      verify:
+        - { service: tracking, method: POST, path: /urls, never: true }

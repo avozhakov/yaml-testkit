@@ -1,0 +1,5 @@
+# A misspelled key: the whole file fails schema validation.
+name: typo in expect
+call: { http: GET /golden }
+expct:
+  status: 200

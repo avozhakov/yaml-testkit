@@ -1,0 +1,83 @@
+# Other GETs, non-200 statuses and non-JSON bodies (row 4; models: DiscoverEndpointIntegrationTest's 400 / 500 paths,
+# FeedCacheKeyRenderingIntegrationTest's startsWith / contains checks on the raw body).
+cases:
+  - name: malformed JSON is a 400 with the requested version
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0", Content-Type: application/json }
+      body: "{bad json}"
+    expect:
+      status: 400
+      assert:
+        - { path: "$.version", equals: "3.0" }
+        - { path: "$.error.code", equals: bad_request }
+
+  - name: a missing version header is a 400 without a version
+    call:
+      http: POST /discover
+      body: { intent: { prompt: running shoes, ad_count: 1 }, meta: { request_id: req-1 } }
+    expect:
+      status: 400
+      assert:
+        - { path: "$.version", exists: true, isNull: true }
+        - { path: "$.error.code", equals: bad_request }
+
+  - name: an unsupported version is a 400
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "2.0" }
+      body: { intent: { prompt: running shoes, ad_count: 1 }, meta: { request_id: req-1 } }
+    expect:
+      status: 400
+      assert:
+        - { path: "$.version", equals: "2.0" }
+        - { path: "$.error.code", equals: unsupported_version }
+
+  - name: a well-formed request whose partner keeps failing is a 500
+    http:
+      - { service: partner, method: POST, path: /search, response: { status: 503 } }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: running shoes, ad_count: 1 }, meta: { request_id: req-1 } }
+    expect:
+      status: 500
+      assert:
+        - { path: "$.version", equals: "3.0" }
+        - { path: "$.error.code", equals: internal_error }
+      verify:
+        - { service: partner, method: POST, path: /search, times: 2 }
+
+  - name: feed listing is an XML-ish text body
+    steps:
+      - name: baseline feeds
+        call: { bean: feedReloadScheduler, method: reloadFeeds }
+      - name: text
+        call: { http: GET /text, query: { qt: "shoes & socks" } }
+        expect:
+          status: 200
+          bodyText:
+            startsWith: "<ads>"
+            contains: [ '<ad id="1">', '<url>https://feeds.example/2?qt=shoes+%26+socks</url>' ]
+            notContains: [ asin, gtin ]
+            matches: '^<ads>(<ad id="\d+"><url>[^<]+</url></ad>)+</ads>$'
+
+  - name: a missing query term is a plain-text 400
+    call: { http: GET /text }
+    expect:
+      status: 400
+      bodyText: { equals: qt is required }
+
+  - name: raw JSON body checked as text
+    call: { http: GET /golden }
+    expect:
+      status: 200
+      bodyText:
+        startsWith: '{"version":"3.0",'
+        contains: '"request_id":"golden"'
+        notContains: '"requestId"'
+
+  - name: an unknown path is a 404
+    call: { http: GET /no-such-endpoint }
+    expect:
+      status: 404

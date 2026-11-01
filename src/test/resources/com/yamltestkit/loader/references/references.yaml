@@ -1,0 +1,39 @@
+cases:
+  - name: earlier step and capture
+    steps:
+      - name: isp
+        call: { http: GET /isp }
+      - name: is
+        call: { http: GET /is }
+        expect:
+          verify:
+            - { bean: dspClient, method: requestAds, as: dsp }
+            - bean: eventLogger
+              method: send
+              assert:
+                - { path: "$[0].args[0].requestId", equals: { ref: dsp, path: "$[0].args[0].requestId" } }
+          assert:
+            - { path: "$.ads.length()", equals: { ref: isp, path: "$.ads.length()" } }
+            - { path: "$.ads", all: { path: "$.id", notEquals: { ref: dsp, path: "$[0].args[0].id" } } }
+
+  - name: forward step reference
+    steps:
+      - name: first
+        call: { http: GET /is }
+        expect:
+          body: { ref: second }
+      - name: second
+        call: { http: GET /isp }
+
+  - name: unknown reference
+    call: { http: GET /is }
+    expect:
+      assert:
+        - { path: "$", equals: { ref: nowhere } }
+
+  - name: capture used before it is made
+    call: { http: GET /is }
+    expect:
+      verify:
+        - { bean: eventLogger, method: send, args: [ { ref: dsp } ] }
+        - { bean: dspClient, method: requestAds, as: dsp }

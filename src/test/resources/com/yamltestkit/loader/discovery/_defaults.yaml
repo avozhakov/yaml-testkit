@@ -1,0 +1,5 @@
+mocks:
+  - { bean: placementAccess, method: getPlacement, returns: { id: 1 } }
+spies: [ auditService ]
+http:
+  - { service: partner, path: /health, response: { status: 200 } }

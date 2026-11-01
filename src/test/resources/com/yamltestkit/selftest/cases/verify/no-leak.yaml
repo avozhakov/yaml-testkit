@@ -1,0 +1,48 @@
+# Nothing leaks between cases (row 41; models: the ITs that drain the async Kafka sends of a test before the next one
+# and call clearInvocations on shared mocks, and the shared contexts whose startup calls must not count against the
+# test that happens to start them). Calls a shared context makes while it starts are forgotten, so the first two
+# checks pass whether the case runs alone (`-Dyamlit.filter=verify/no-leak.yaml/*`, it then starts the context) or
+# after other cases. `settleMs` (100) is well above the 40 ms delay of the response event
+# (fixture.events.response-delay), so a case's late event lands before the next case resets the mocks, even on a slow
+# machine.
+cases:
+  - name: the startup load of the shared context is not seen by its first case
+    call: { bean: modeService, method: mode }
+    expect:
+      returns: context
+      verify:
+        - { bean: feedRepository, method: findAll, never: true }
+
+  - name: the startup load of another variant's shared context is not seen either
+    context: eco
+    call: { bean: modeService, method: mode }
+    expect:
+      returns: eco
+      verify:
+        - { bean: feedRepository, method: findAll, never: true }
+
+  - name: a request whose response event is sent after the case ends
+    mocks:
+      - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, availableSlots: 1 } } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      assert: [ { path: "$.ads", size: 1 } ]
+
+  - name: the next case sees none of its calls, late ones included
+    call: { bean: modeService, method: mode }
+    expect:
+      returns: context
+      verify:
+        - { bean: eventLogger, noInteractions: true, within: 300ms }
+        - { bean: dspClient, method: requestAds, never: true }
+        - { bean: placementAccess, noInteractions: true }
+        - { service: tracking, method: POST, path: /urls, never: true }
+
+  - name: the previous case's stub does not answer either
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      assert: [ { path: "$.ads", size: 2 } ]
+      verify:
+        - { bean: dspClient, method: requestAds, times: 1, assert: [ { path: "$[0].args[0].maxAds", equals: 4 } ] }

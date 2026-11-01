@@ -1,0 +1,32 @@
+# Stubs active during startup (rows 22, 45; model: DiscoverFeedProviderCacheIntegrationTest's boot fixture, JDBC rows
+# from a mocked JdbcTemplate.queryForList): the boot-time stub of feedRepository in _context.yaml answers the load
+# FeedCache runs while the context starts, and stays the lowest stub layer of every later case.
+cases:
+  - name: cache is loaded from the boot-time stub at startup
+    # A fresh context, so the startup load is this case's own and its call is visible.
+    freshContext: true
+    steps:
+      - name: size
+        call: { bean: feedCache, method: size }
+        expect:
+          returns: 2
+          verify: [ { bean: feedRepository, method: findAll, times: 1 } ]
+      - name: row of the boot load
+        call: { bean: feedCache, method: find, args: [ 2 ] }
+        expect: { returns: { id: 2 } }
+  - name: case stub replaces the boot-time stub for a reload
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { id: 1 }, { id: 2 }, { id: 3 } ] }
+    steps:
+      - name: reload
+        call: { bean: feedCache, method: reload }
+      - name: size
+        call: { bean: feedCache, method: size }
+        expect: { returns: 3 }
+  - name: reload in a later case reads the boot-time stub again
+    steps:
+      - name: reload
+        call: { bean: feedCache, method: reload }
+      - name: size
+        call: { bean: feedCache, method: size }
+        expect: { returns: 2 }

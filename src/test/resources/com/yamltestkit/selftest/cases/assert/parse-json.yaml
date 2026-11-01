@@ -1,0 +1,40 @@
+# JSON inside a string field (row 33; model: ExpandedQueryTermRestorationIT, which parses the `text` of each diag
+# trace record and the logged ad response string with readTree before asserting). With debug=true each diag entry's
+# payload is a JSON string; `parseJson` parses the value(s) the path selects before the operators apply.
+cases:
+  - name: diag payloads parsed per entry
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: d1, title: Desk, section: top, price: 200, landingUrl: "https://shop.example/d1" }
+            - { id: d1, title: Desk again, section: top, price: 200, landingUrl: "https://shop.example/d1" }
+            - { id: d2, title: Chair, section: side, price: 90, landingUrl: "https://shop.example/d2" }
+    call: { http: GET /ads, query: { plid: 14019, qt: desk, debug: true } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.diag[*].step", containsExactly: [ dedup, serve ] }
+        - { path: "$.diag[0].payload", startsWith: "{" }
+        - { path: "$.diag[?(@.step == 'dedup')].payload", parseJson: true, all: { path: "$.dropped", size: 1 } }
+        - { path: "$.diag[?(@.step == 'dedup')].payload", parseJson: true, all: { path: "$.dropped[0]", equals: d1 } }
+        - { path: "$.diag[0].payload", parseJson: true, equals: { dropped: [ d1 ] } }
+        - { path: "$.diag[1].payload", parseJson: true, equals: { served: 2 }, mode: strict }
+        - { path: "$.ads[*].id", containsExactly: [ d1, d2 ] }
+
+  - name: the logged response string parsed and checked
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      verify:
+        - bean: eventLogger
+          method: send
+          argType: { index: 1, type: com.yamltestkit.selftest.app.events.ResponseEvent }
+          times: 1
+          within: 3s
+          assert:
+            - { path: "$[0].args[1].adResponseString", contains: '"warnings":[]' }
+            - { path: "$[0].args[1].adResponseString", parseJson: true, equals: { ads: [ { id: p1 }, { id: p2 } ], warnings: [ ] } }
+            - { path: "$[0].args[1].adResponseString", parseJson: true, notEquals: { ads: [ { id: p1 } ] } }
+            - { path: "$[0].args[1].adResponseString", parseJson: true, size: 3 }

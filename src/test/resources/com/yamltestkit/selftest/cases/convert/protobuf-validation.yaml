@@ -1,0 +1,53 @@
+# Protobuf messages wrapped in a vavr Validation (row 15; model: Java ITs stubbing
+# placementAccess.getPlacement with `Validation.valid(seedPlacement())`, a protobuf message). Struct stands in for the
+# generated message: `{ valid: … }` / `{ invalid: … }` build the Validation, the protobuf converter builds the message
+# from JSON, and the reverse direction prints it back for expectations.
+cases:
+  - name: a valid placement message drives the request
+    mocks:
+      - { bean: placementAccess, method: getPlacement, args: [ 13038 ], returns: { valid: { id: 13038, availableSlots: 1, competitivenessId: c-13038 } } }
+    call: { http: GET /ads, query: { plid: 13038, qt: shoes } }
+    expect:
+      status: 200
+      assert: [ { path: "$.ads", size: 1 } ]
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].maxAds", equals: 1 }
+            - { path: "$[0].args[0].publisher", equals: { placementId: 13038, competitivenessId: c-13038 } }
+        - bean: pricingEnricher
+          method: enrich
+          times: 1
+          assert:
+            - { path: "$[0].args[0].placement", equals: { id: 13038, availableSlots: 1, competitivenessId: c-13038 }, mode: strict }
+
+  - name: an invalid Validation rejects the request
+    mocks:
+      - { bean: placementAccess, method: getPlacement, args: [ 13038 ], returns: { invalid: placement 13038 is archived } }
+    call: { http: GET /ads, query: { plid: 13038, qt: shoes } }
+    expect:
+      status: 400
+      body: { error: placement 13038 is archived }
+      verify:
+        - { bean: dspClient, method: requestAds, never: true }
+
+  - name: a returned Validation of a message converted back to JSON
+    mocks:
+      - { bean: placementAccess, method: getPlacement, args: [ 13038 ], returns: { valid: { id: 13038, availableSlots: 50 } } }
+    call: { bean: placementAccess, method: getPlacement, args: [ 13038 ] }
+    expect:
+      returns: { valid: { id: 13038, availableSlots: 50 } }
+      assert:
+        - { path: "$.valid.availableSlots", equals: 50 }
+        - { path: "$.invalid", absent: true }
+
+  - name: an invalid Validation converted back to JSON
+    mocks:
+      - { bean: placementAccess, method: getPlacement, args: [ 13038 ], returns: { invalid: no placement } }
+    call: { bean: placementAccess, method: getPlacement, args: [ 13038 ] }
+    expect:
+      returns: { invalid: no placement }
+      assert:
+        - { path: "$.valid", absent: true }

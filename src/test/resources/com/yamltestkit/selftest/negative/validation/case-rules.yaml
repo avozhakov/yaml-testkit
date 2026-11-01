@@ -1,0 +1,32 @@
+# Cases the loader rejects one by one; the other cases of the file still load.
+cases:
+  - name: mocks in a class case
+    mocks:
+      - { bean: dspClient, method: requestAds, returns: { ads: [ ] } }
+    call: { class: com.yamltestkit.selftest.unit.Slugs, method: slug, args: [ Tent ] }
+    expect:
+      returns: tent
+
+  - name: returns on an http call
+    call: { http: GET /golden }
+    expect:
+      returns: { version: "3.0" }
+
+  - name: forward reference
+    steps:
+      - name: first
+        call: { http: GET /golden }
+        expect:
+          assert: [ { path: "$.version", equals: { ref: second, path: "$.version" } } ]
+      - name: second
+        call: { http: GET /golden }
+
+  - name: unknown reference
+    call: { http: GET /golden }
+    expect:
+      assert: [ { path: "$.version", equals: { ref: nowhere } } ]
+
+  - name: missing payload file
+    call: { http: GET /golden }
+    expect:
+      body: { file: data/no-such-file.json }

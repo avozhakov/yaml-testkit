@@ -1,0 +1,4 @@
+name: misspelled expect
+call: { http: GET /is }
+expct:
+  status: 200

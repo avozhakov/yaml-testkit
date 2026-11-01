@@ -1,0 +1,10 @@
+# A missing bean created by type (row 13; model: AbstractSpringBootIT.BootMocksTestConfig's @Primary JdbcTemplate
+# mock): `mockBeans` with `type` and `primary` registers a mock where no bean of that name exists.
+cases:
+  - name: missing bean is created by type and answers with the defaults stub
+    call: { bean: reportService, method: count }
+    expect: { returns: 7 }
+  - name: case stub replaces the defaults stub
+    mocks: [ { bean: reportStore, method: count, returns: 9 } ]
+    call: { bean: reportService, method: count }
+    expect: { returns: 9 }

@@ -1,0 +1,22 @@
+application: com.example.FixtureApplication
+profiles: [ selftest ]
+properties:
+  spring.config.name: selftest
+  logging.level.com.example: INFO
+  partner.base-url: ${wiremock.partner.url}
+services: [ partner, tracking ]
+mockBeans:
+  - redisConnection
+  - { name: jdbcTemplate, type: org.springframework.jdbc.core.JdbcTemplate, primary: true }
+  - name: feedRepository
+    stubs:
+      - { method: findAll, returns: { file: rows.json } }
+spyBeans: [ dataLoggingService ]
+valueBeans:
+  - { name: exchangeSources, type: com.example.ExchangeSources, value: { sources: [] }, primary: true }
+variants:
+  ebay-off:
+    properties: { feature.ebay.enabled: false }
+    mockBeans: [ ebayClient ]
+converters: [ com.example.MoneyConverter ]
+settleMs: 50

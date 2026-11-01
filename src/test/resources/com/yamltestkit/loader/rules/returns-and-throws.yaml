@@ -1,0 +1,12 @@
+# A default `returns` merged into a case that expects `throws` gives both.
+defaults:
+  call:
+    class: com.example.Unit
+    method: run
+  expect:
+    returns: 42
+cases:
+  - name: returns
+  - name: throws
+    expect:
+      throws: { type: IllegalStateException }

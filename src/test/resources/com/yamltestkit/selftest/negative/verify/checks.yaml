@@ -1,0 +1,46 @@
+# One case per verification kind, each on calls that must make it fail. An ad request calls placementAccess,
+# providerRegistry, dspClient and auditService.recordResponse once, posts once to the tracking service and sends the
+# request and response events to eventLogger from another thread.
+defaults:
+  call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+cases:
+  - name: times
+    expect:
+      verify: [ { bean: dspClient, method: requestAds, times: 2 } ]
+
+  - name: atLeast
+    expect:
+      verify: [ { bean: dspClient, method: requestAds, atLeast: 3 } ]
+
+  - name: never
+    expect:
+      verify: [ { bean: placementAccess, method: getPlacement, never: true } ]
+
+  - name: noInteractions
+    expect:
+      verify: [ { bean: providerRegistry, noInteractions: true } ]
+
+  - name: args
+    expect:
+      verify: [ { bean: placementAccess, method: getPlacement, args: [ 777 ], times: 1 } ]
+
+  - name: argType
+    expect:
+      verify:
+        - { bean: auditService, method: recordResponse, argType: { index: 0, type: java.lang.Integer }, times: 1 }
+
+  - name: within timeout
+    expect:
+      verify:
+        - { bean: eventLogger, method: send, args: [ "#any", "#any", ad_response ], times: 2, within: 300ms }
+
+  - name: assert on captured calls
+    expect:
+      verify:
+        - bean: dspClient
+          method: requestAds
+          assert: [ { path: "$[0].args[0].maxAds", equals: 9 } ]
+
+  - name: WireMock count
+    expect:
+      verify: [ { service: tracking, method: POST, path: /urls, times: 2 } ]

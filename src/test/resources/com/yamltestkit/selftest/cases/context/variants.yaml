@@ -1,0 +1,21 @@
+# Per-class property overrides (row 9; model: IT classes with their own @TestPropertySource): a
+# case picks a named variant of _context.yaml, which adds or overrides properties on top of the base ones.
+cases:
+  - name: context properties win over the configuration file
+    call: { bean: modeService, method: mode }
+    expect: { returns: context }
+  - name: the configuration file is loaded through spring.config.name
+    call: { bean: modeService, method: source }
+    expect: { returns: selftest.yml }
+  - name: a variant overrides a property
+    context: eco
+    call: { bean: modeService, method: mode }
+    expect: { returns: eco }
+  - name: a variant overrides a property the configuration file sets
+    context: no-retry
+    call: { bean: environment, method: getProperty, paramTypes: [ java.lang.String ], args: [ partner.retries ] }
+    expect: { returns: "0" }
+  - name: a variant keeps the base properties it does not override
+    context: no-retry
+    call: { bean: modeService, method: mode }
+    expect: { returns: context }

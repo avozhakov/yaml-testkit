@@ -1,0 +1,4 @@
+mocks:
+  - { bean: placementAccess, method: getPlacement, returns: { id: 1 } }
+http:
+  - { service: partner, path: /health, response: { status: 200 } }

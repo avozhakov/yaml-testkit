@@ -1,0 +1,6 @@
+# A mocked bean that the context does not have: the variant's context fails to start.
+name: unknown bean
+context: unknown-bean
+mocks:
+  - { bean: campainClient, method: send, returns: null }
+call: { bean: modeService, method: mode }

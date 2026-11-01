@@ -1,0 +1,47 @@
+# Raw-string checks on the body (row 32; models: FeedCacheKeyRenderingIntegrationTest's startsWith / contains on a
+# rendered body, ProductAdIdentifierNotInResponseIT-style not-contains on the raw JSON). `bodyText` reads the body as
+# text whatever its content type; each matcher takes one value or a list that must all hold.
+cases:
+  - name: a non-JSON body checked as text
+    steps:
+      - name: baseline feeds
+        call: { bean: feedCache, method: reload }
+      - name: listing
+        call: { http: GET /text, query: { qt: tents } }
+        expect:
+          status: 200
+          headers: { Content-Type: text/xml }
+          bodyText:
+            startsWith: "<ads>"
+            contains: "<url>"
+            notContains: [ asin, gtin ]
+            matches: '^<ads>.*</ads>$'
+
+  - name: a JSON body checked as raw text
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      bodyText:
+        startsWith: '{"requestId":"req-'
+        contains: [ '"title":"Red shoes"', '"gtin":null', '"asin":"B00SHOES"' ]
+        notContains: [ '"advertiserUrl"', '"diag"', '"qt"' ]
+        matches: '^\{"requestId":"req-\d+","ads":\[.*\],"warnings":\[\]\}$'
+
+  - name: a plain-text error body equals its text
+    call: { http: GET /text, query: { qt: "" } }
+    expect:
+      status: 400
+      bodyText:
+        equals: qt is required
+        notContains: [ "<ads>", "{" ]
+
+  - name: string operators on a JSON string field
+    mocks:
+      - { bean: pricingEnricher, method: enrich, returns: { invalid: "floor 1.50 not met for placement 14019" } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.warnings[0]", startsWith: "enrichment failed: " }
+        - { path: "$.warnings[0]", contains: [ "floor 1.50", "placement 14019" ] }
+        - { path: "$.warnings[0]", matches: 'enrichment failed: floor \d+\.\d+ not met .*' }

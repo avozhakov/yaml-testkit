@@ -1,0 +1,3 @@
+# An http call that is not "<METHOD> <path>": the whole file fails schema validation.
+name: path without a method
+call: { http: /golden }

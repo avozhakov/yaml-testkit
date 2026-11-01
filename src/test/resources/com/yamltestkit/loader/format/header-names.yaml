@@ -1,0 +1,20 @@
+cases:
+  - name: header names in mixed letter case
+    http:
+      - service: partner
+        method: POST
+        path: /bid
+        headers: { X-Key: abc }
+        response: { status: 200 }
+    call: { http: GET /is }
+    expect:
+      verify:
+        - { service: partner, method: POST, path: /bid, headers: { Content-Type: application/json } }
+
+  - name: one header name in two spellings
+    http:
+      - service: partner
+        path: /bid
+        headers: { X-Key: abc, x-key: def }
+        response: { status: 200 }
+    call: { http: GET /is }

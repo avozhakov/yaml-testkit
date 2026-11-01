@@ -1,0 +1,37 @@
+# Argument matchers (row 25; model: any(), any(Class), eq(…) and literal arguments in Mockito stubs and
+# verifications): a literal compared by JSON equality, "#any", and `anyOf` matching the runtime type.
+cases:
+  - name: a literal argument gets its own stub over the "#any" one
+    mocks:
+      - { bean: placementAccess, method: getPlacement, args: [ "#any" ], returns: { valid: { id: 0, availableSlots: 1 } } }
+      - { bean: placementAccess, method: getPlacement, args: [ 777 ], returns: { invalid: placement 777 is paused } }
+    steps:
+      - name: paused placement
+        call: { http: GET /ads, query: { plid: 777, qt: shoes } }
+        expect:
+          status: 400
+          body: { error: placement 777 is paused }
+      - name: any other placement
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect:
+          status: 200
+          assert:
+            - { path: "$.ads", size: 1 }
+          verify:
+            - { bean: placementAccess, method: getPlacement, args: [ 777 ], times: 1 }
+            - { bean: placementAccess, method: getPlacement, args: [ 14019 ], times: 1 }
+            - { bean: placementAccess, method: getPlacement, args: [ 15000 ], never: true }
+            - { bean: placementAccess, method: getPlacement, args: [ "#any" ], times: 2 }
+            - { bean: placementAccess, method: getPlacement, args: [ { anyOf: java.lang.Long } ], times: 2 }
+
+  - name: anyOf matches any argument of the type
+    mocks:
+      - { bean: providerRegistry, method: find, args: [ { anyOf: java.lang.String } ], returns: { name: any, maxAds: 1 } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes, provider: zzz } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 1 }
+      verify:
+        - { bean: providerRegistry, method: find, args: [ zzz ], times: 1 }
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].maxAds", equals: 1 } ] }

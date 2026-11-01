@@ -1,0 +1,125 @@
+# A transport-level fake: status, body, I/O fault, request capture and call count (row 27; model: AmazonHttpStub —
+# respondWith(status, body), respondWithTransportFailure(), capturedRequestBodies(), verifyCallCount()). WireMock
+# answers the partner and tracking clients; the journal check reads what they sent.
+cases:
+  - name: outgoing request counted and captured from the journal
+    http:
+      - service: partner
+        method: GET
+        path: /items/8
+        response: { status: 200, body: { name: eight } }
+    call: { http: GET /partner/items/8 }
+    expect:
+      status: 200
+      body: { name: eight }
+      verify:
+        - service: partner
+          method: GET
+          path: /items/8
+          times: 1
+          as: partnerCalls
+          assert:
+            - { path: "$[0].method", equals: GET }
+            - { path: "$[0].path", equals: /items/8 }
+            - { path: "$[0].body", isNull: true }
+        - service: partner
+          path: /items/8
+          assert:
+            - { path: "$[0].path", equals: { ref: partnerCalls, path: "$[0].path" } }
+        - { service: partner, path: /items/9, never: true }
+
+  - name: a JSON request body matched and captured
+    http:
+      - service: partner
+        method: POST
+        path: /search
+        headers: { Content-Type: application/json }
+        body: { query: tents, limit: 3 }
+        response:
+          status: 200
+          headers: { Content-Type: application/json }
+          body: { items: [ { id: t1, title: Dome tent } ] }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: tents, ad_count: 3 }, meta: { request_id: req-tents } }
+    expect:
+      status: 200
+      assert: [ { path: "$.items[*].title", containsExactly: [ Dome tent ] } ]
+      verify:
+        - service: partner
+          method: POST
+          path: /search
+          body: { query: tents, limit: 3 }
+          times: 1
+          assert:
+            - { path: "$[0].body.query", equals: tents }
+            - { path: "$[0].body.limit", equals: 3 }
+            - { path: "$[0].headers.content-type", equals: application/json }
+            - { path: "$[0].query", size: 0 }
+
+  - name: a client error status is final, not retried
+    http:
+      - { service: partner, method: POST, path: /search, response: { status: 400, body: bad search } }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: tents, ad_count: 1 }, meta: { request_id: req-400 } }
+    expect:
+      status: 500
+      assert: [ { path: "$.error.code", equals: internal_error } ]
+      verify:
+        - { service: partner, method: POST, path: /search, times: 1 }
+
+  - name: a transport failure on every attempt is retried and then fails
+    http:
+      - { service: partner, method: POST, path: /search, response: { fault: CONNECTION_RESET_BY_PEER } }
+    call:
+      http: POST /discover
+      headers: { x-discover-version: "3.0" }
+      body: { intent: { prompt: tents, ad_count: 1 }, meta: { request_id: req-reset } }
+    expect:
+      status: 500
+      assert: [ { path: "$.error.code", equals: internal_error } ]
+      verify:
+        - { service: partner, method: POST, path: /search, times: 2 }
+      logs:
+        - { logger: com.yamltestkit.selftest.app.PartnerClient, level: WARN, contains: "attempt 2 of 2 failed", times: 1 }
+
+  - name: an empty tracking response drops the ads with a warning
+    http:
+      - { service: tracking, method: POST, path: /urls, response: { fault: EMPTY_RESPONSE } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings[0]", startsWith: "tracking failed: 0 " }
+      verify:
+        - { service: tracking, method: POST, path: /urls, times: 1 }
+
+  - name: a tracking error status drops the ads with a warning
+    http:
+      - { service: tracking, method: POST, path: /urls, response: { status: 503, body: tracking down } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings", containsExactly: [ "tracking failed: 503 tracking down" ] }
+      verify:
+        - service: tracking
+          method: POST
+          path: /urls
+          times: 1
+          assert: [ { path: "$[0].body.items", size: 2 } ]
+
+  - name: a tracking answer slower than the timeout drops the ads
+    http:
+      - { service: tracking, method: POST, path: /urls, response: { status: 200, delayMs: 1500, body: { urls: [ ] } } }
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings[0]", startsWith: "tracking failed: 0 " }

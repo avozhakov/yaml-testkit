@@ -1,0 +1,34 @@
+# GET with a query map over the real port (row 1; model: AbstractSpringBootIT.callIs, which adds each parameter to
+# the URI and reads the JSON body of GET /is). The engine encodes the query values; the application sees them decoded.
+cases:
+  - name: query values are encoded and headers sent
+    call:
+      http: GET /echo
+      query: { plid: 123, qt: "shoes & socks" }
+      headers: { x-test: hello }
+    expect:
+      status: 200
+      headers: { X-Echo: hello }
+      body:
+        query: "plid=123&qt=shoes%20%26%20socks"
+        params: { plid: "123", qt: "shoes & socks" }
+
+  - name: ad request with a query map reaches the DSP decoded
+    call:
+      http: GET /ads
+      query: { plid: 14019, qt: "shoes & socks", v: "2.0" }
+    expect:
+      status: 200
+      headers: { Content-Type: application/json }
+      assert:
+        - { path: "$.ads[*].title", containsExactly: [ Red shoes, Blue shoes ] }
+        - { path: "$.warnings", size: 0 }
+      verify:
+        - bean: dspClient
+          method: requestAds
+          times: 1
+          assert:
+            - { path: "$[0].args[0].queryTerm", equals: "shoes & socks" }
+            - { path: "$[0].args[0].queryTerms", containsExactly: [ "shoes & socks" ] }
+            - { path: "$[0].args[0].maxAds", equals: 4 }
+            - { path: "$[0].args[0].publisher.placementId", equals: 14019 }

@@ -1,0 +1,25 @@
+# Full golden comparisons (row 31; model: DiscoverDspOnlyFallbackIntegrationTest, which compares the whole fallback
+# body with a golden string). `mode: exact` compares the raw text; the JSON compare can ignore the fields generated
+# at runtime and forbid extra fields with `mode: strict`.
+cases:
+  - name: the fallback body equals the golden string exactly
+    call: { http: GET /golden }
+    expect:
+      status: 200
+      body:
+        mode: exact
+        value: '{"version":"3.0","request_id":"golden","items":[{"id":"fallback-1","title":"Running shoes"}]}'
+
+  - name: the fallback body equals the golden JSON strictly
+    call: { http: GET /golden }
+    expect:
+      body: { file: data/golden-fallback.json, mode: strict }
+
+  - name: the ad response equals its golden file except the generated fields
+    call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+    expect:
+      status: 200
+      body:
+        file: data/golden-ads.json
+        mode: strict
+        ignore: [ "$.requestId", "$.ads[*].adSelectionId", "$.ads[*].clickUrl" ]

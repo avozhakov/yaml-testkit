@@ -1,0 +1,46 @@
+# Several calls in one case, compared through references (row 5; models: FeedMultiQtIT and IspV21QtRenderingIT, which
+# call /isp and /is with the same parameters and compare the two bodies).
+cases:
+  - name: second response equals the first one's parameters
+    steps:
+      - name: first
+        call: { http: GET /echo, query: { plid: 123, qt: shoes } }
+        expect: { status: 200 }
+      - name: second
+        call: { http: GET /echo, query: { plid: 123, qt: shoes } }
+        expect:
+          status: 200
+          assert:
+            - { path: "$.params", equals: { ref: first, path: "$.params" } }
+            - { path: "$.params.qt", equals: { ref: first, path: "$.params.qt" } }
+          body: { ref: first }
+
+  - name: privacy and public endpoints bind the same per-term ads
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        returns:
+          ads:
+            - { id: d1, title: Dell XPS, qt: dell, section: top, price: 900, landingUrl: "https://shop.example/d1" }
+            - { id: d2, title: Dell Inspiron, qt: dell, section: top, price: 600, landingUrl: "https://shop.example/d2" }
+            - { id: a1, title: MacBook Air, qt: apple, section: side, price: 1100, landingUrl: "https://shop.example/a1" }
+            - { id: a2, title: MacBook Pro, qt: apple, section: side, price: 1900, landingUrl: "https://shop.example/a2" }
+    steps:
+      - name: isp
+        call: { http: GET /ads-private, query: { plid: 14019, qt: '["dell","apple"]', v: "2.1" } }
+        expect:
+          status: 200
+          assert:
+            - { path: "$.ads[?(@.qt == 'dell')]", size: 2 }
+            - { path: "$.ads[?(@.qt == 'apple')]", size: 2 }
+            - { path: "$.ads", all: { path: "$.advertiserUrl", exists: true } }
+      - name: is
+        call: { http: GET /ads, query: { plid: 14019, qt: '["dell","apple"]', v: "2.1" } }
+        expect:
+          status: 200
+          assert:
+            - { path: "$.ads.length()", equals: { ref: isp, path: "$.ads.length()" } }
+            - { path: "$.ads[*].title", equals: { ref: isp, path: "$.ads[*].title" } }
+            - { path: "$.ads[*].qt", equals: { ref: isp, path: "$.ads[*].qt" } }
+            - { path: "$.ads", none: { path: "$.advertiserUrl", exists: true } }
+            - { path: "$.requestId", notEquals: { ref: isp, path: "$.requestId" } }

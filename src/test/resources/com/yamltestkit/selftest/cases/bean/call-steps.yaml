@@ -1,0 +1,36 @@
+# Direct bean calls in steps: trigger a reload through the scheduler bean, then read the cache (rows 6, 43; model:
+# DiscoverFeedProviderCacheIntegrationTest, which calls cacheReloaderScheduler.reload…() and reads the cache access
+# bean, the reload interval pushed out by @TestPropertySource). _context.yaml silences the schedule the same way.
+cases:
+  - name: a reload through the scheduler replaces the cached rows
+    mocks:
+      - { bean: feedRepository, method: findAll, returns: [ { id: 1, name: control }, { id: 2, name: degraded }, { id: 3, name: full } ] }
+    steps:
+      - name: reload
+        call: { bean: feedReloadScheduler, method: reloadFeeds }
+        expect:
+          verify: [ { bean: feedRepository, method: findAll, times: 1 } ]
+      - name: size
+        call: { bean: feedCache, method: size }
+        expect: { returns: 3 }
+      - name: row of the new load
+        call: { bean: feedCache, method: find, args: [ 3 ] }
+        expect: { returns: { id: 3, name: full }, assert: [ { path: "$.name", equals: full } ] }
+      - name: row not in the load
+        call: { bean: feedCache, method: find, args: [ 99 ] }
+        expect: { returns: null }
+
+  - name: an empty load empties the cache
+    mocks: [ { bean: feedRepository, method: findAll, returns: [ ] } ]
+    steps:
+      - name: reload
+        call: { bean: feedReloadScheduler, method: reloadFeeds }
+      - name: size
+        call: { bean: feedCache, method: size }
+        expect: { returns: 0 }
+
+  - name: the schedule stays silent between explicit reloads
+    call: { bean: feedCache, method: size }
+    expect:
+      verify:
+        - { bean: feedRepository, method: findAll, never: true, within: 300ms }

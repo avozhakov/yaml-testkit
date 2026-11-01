@@ -1,0 +1,42 @@
+# Answers keyed by the argument value (row 18, bean part; model: the ITs stubbing a lookup per key, e.g.
+# feedCacheAccess.getFeed(FeedProviderKey.AMP_DSP)). Stubs of one method with different `args` coexist; any other
+# argument gets the Mockito default, Optional.empty(). HTTP answers computed from the request: wiremock/templated.yaml.
+defaults:
+  mocks:
+    - { bean: providerRegistry, method: find, args: [ amazon ], returns: { name: amazon, maxAds: 1 } }
+    - { bean: providerRegistry, method: find, args: [ ebay ], returns: null }
+  call: { http: GET /ads }
+  expect: { status: 200 }
+cases:
+  - name: amazon gets its own provider
+    call: { query: { plid: 14019, qt: shoes, provider: amazon } }
+    expect:
+      assert:
+        - { path: "$.ads[*].id", containsExactly: [ p1 ] }
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].maxAds", equals: 1 } ] }
+
+  - name: ebay is stubbed to no provider
+    call: { query: { plid: 14019, qt: shoes, provider: ebay } }
+    expect:
+      assert:
+        - { path: "$.ads", size: 0 }
+        - { path: "$.warnings", containsExactly: [ unknown provider ebay ] }
+      verify:
+        - { bean: dspClient, method: requestAds, never: true }
+
+  - name: dsp still gets the _defaults.yaml provider
+    call: { query: { plid: 14019, qt: shoes, provider: dsp } }
+    expect:
+      assert:
+        - { path: "$.ads", size: 2 }
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].maxAds", equals: 4 } ] }
+
+  - name: any other provider gets the Mockito default
+    call: { query: { plid: 14019, qt: shoes, provider: bing } }
+    expect:
+      assert:
+        - { path: "$.warnings", containsExactly: [ unknown provider bing ] }
+      verify:
+        - { bean: providerRegistry, method: find, args: [ bing ], times: 1 }

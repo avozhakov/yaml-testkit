@@ -1,0 +1,40 @@
+# Consecutive answers (rows 19, 21; model: TrackingUrlResilienceIT.retriesThenSucceeds_onTransientApiException,
+# `thenThrow(new ApiException(503, "transient")).thenAnswer(…)`): one answer per call, the last one repeating.
+cases:
+  - name: a transient failure is retried and the second answer serves
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        answers:
+          - throws: { type: com.yamltestkit.selftest.app.ApiException, args: [ 503, transient ] }
+          - returns:
+              ads: [ { id: r1, title: Speaker, qt: speaker, section: top, price: 60, landingUrl: "https://shop.example/r1" } ]
+    call: { http: GET /ads, query: { plid: 14019, qt: speaker } }
+    expect:
+      status: 200
+      assert:
+        - { path: "$.ads[*].id", containsExactly: [ r1 ] }
+        - { path: "$.ads[0].clickUrl", matches: '^https://click\.example/\d+$' }
+        - { path: "$.warnings", size: 0 }
+      verify:
+        - { bean: dspClient, method: requestAds, times: 2 }
+
+  - name: the last answer repeats on later calls
+    mocks:
+      - bean: dspClient
+        method: requestAds
+        answers:
+          - returns: { ads: [ { id: a1, title: First, section: top, price: 1, landingUrl: "https://shop.example/a1" } ] }
+          - returns: { ads: [ { id: a2, title: Second, section: top, price: 2, landingUrl: "https://shop.example/a2" } ] }
+    steps:
+      - name: first call
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect: { assert: [ { path: "$.ads[*].id", containsExactly: [ a1 ] } ] }
+      - name: second call
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect: { assert: [ { path: "$.ads[*].id", containsExactly: [ a2 ] } ] }
+      - name: third call
+        call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
+        expect:
+          assert: [ { path: "$.ads[*].id", containsExactly: [ a2 ] } ]
+          verify: [ { bean: dspClient, method: requestAds, times: 3 } ]

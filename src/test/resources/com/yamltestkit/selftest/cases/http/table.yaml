@@ -1,0 +1,86 @@
+# A parameter table: shared stubs and call in `defaults`, one case per row that differs only in the query and the
+# expected values (row 51; model: QueryTermAsReceivedIT's @MethodSource table). The engine encodes each qt once, like
+# the publisher client of the model. Flag-driven stubs and derived expectations are not supported, so each row writes
+# its expectations out: the terms the DSP receives, and whether the ads render qt (only a v2.1 JSON-array qt does).
+defaults:
+  mocks:
+    - bean: dspClient
+      method: requestAds
+      returns:
+        ads: [ { id: t1, title: Term ad, qt: term, section: top, price: 10, landingUrl: "https://shop.example/t1" } ]
+  call: { http: GET /ads }
+  expect: { status: 200 }
+cases:
+  - name: "v2.0 qt=<nad+1600>"
+    call: { query: { plid: 14019, v: "2.0", qt: "nad+1600" } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "nad+1600" ] } ] }
+
+  - name: "v2.0 qt=<3 + 2 sofa set>"
+    call: { query: { plid: 14019, v: "2.0", qt: "3 + 2 sofa set" } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "3 + 2 sofa set" ] } ] }
+
+  - name: "v2.1 qt=<100 %daunen Bettdecken>"
+    call: { query: { plid: 14019, v: "2.1", qt: "100 %daunen Bettdecken" } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "100 %daunen Bettdecken" ] } ] }
+
+  - name: "v2.0 qt=<Home %26 Garden>"
+    call: { query: { plid: 14019, v: "2.0", qt: "Home %26 Garden" } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "Home %26 Garden" ] } ] }
+
+  - name: 'v2.1 qt=<"sushi-kyiv.com">'
+    call: { query: { plid: 14019, v: "2.1", qt: '"sushi-kyiv.com"' } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ '"sushi-kyiv.com"' ] } ] }
+
+  - name: 'v2.1 qt=<"Escape 17A" OR "Escape 17B" "for sale">'
+    call: { query: { plid: 14019, v: "2.1", qt: '"Escape 17A" OR "Escape 17B" "for sale"' } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - bean: dspClient
+          method: requestAds
+          assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ '"Escape 17A" OR "Escape 17B" "for sale"' ] } ]
+
+  - name: "v2.0 qt=<[Solidcore]>"
+    call: { query: { plid: 14019, v: "2.0", qt: "[Solidcore]" } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "[Solidcore]" ] } ] }
+
+  - name: "v2.1 qt=<[laury vignale]>"
+    call: { query: { plid: 14019, v: "2.1", qt: "[laury vignale]" } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "[laury vignale]" ] } ] }
+
+  - name: 'v2.0 qt=<"C:\docs\file.pdf">'
+    call: { query: { plid: 14019, v: "2.0", qt: '"C:\docs\file.pdf"' } }
+    expect:
+      assert: [ { path: "$.ads[0].qt", absent: true } ]
+      verify:
+        - { bean: dspClient, method: requestAds, assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ '"C:\docs\file.pdf"' ] } ] }
+
+  - name: 'v2.1 qt=<["Yoga Tab 98%DCI-P3","Copilot+ PC"]>'
+    call: { query: { plid: 14019, v: "2.1", qt: '["Yoga Tab 98%DCI-P3","Copilot+ PC"]' } }
+    expect:
+      assert: [ { path: "$.ads[*].qt", containsExactly: [ term ] } ]
+      verify:
+        - bean: dspClient
+          method: requestAds
+          assert: [ { path: "$[0].args[0].queryTerms", containsExactly: [ "Yoga Tab 98%DCI-P3", "Copilot+ PC" ] } ]

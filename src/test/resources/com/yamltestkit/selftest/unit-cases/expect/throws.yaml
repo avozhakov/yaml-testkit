@@ -1,0 +1,24 @@
+# expect.throws on a unit call: type by simple or qualified name, optional exact message.
+defaults:
+  call: { class: com.yamltestkit.selftest.unit.InventoryCheck, method: available }
+
+cases:
+  - name: type and message
+    call: { args: [ sku-1 ] }
+    expect:
+      throws: { type: IllegalStateException, message: db down }
+
+  - name: qualified type without message
+    call: { args: [ " " ] }
+    expect:
+      throws: { type: java.lang.IllegalArgumentException }
+
+  - name: superclass name matches
+    call: { args: [ sku-2 ] }
+    expect:
+      throws: { type: RuntimeException, message: db down }
+
+  - name: a returned future that failed counts as throwing its cause
+    call: { method: availableLater, args: [ sku-3 ] }
+    expect:
+      throws: { type: IllegalStateException, message: db down for sku-3 }

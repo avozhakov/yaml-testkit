@@ -1,0 +1,37 @@
+# assert operators on a returned value's JSON (rows 29, 30, 33, 34, 35 at unit level). Ad omits null fields
+# (asin is missing for the shoes), AdResponse writes gtin as null.
+name: every operator on a returned object
+call:
+  class: com.yamltestkit.selftest.unit.AdFixtures
+  method: response
+  args: [ req-42 ]
+expect:
+  assert:
+    - { path: "$.requestId", equals: req-42 }
+    - { path: "$.ads[0]", equals: { title: Red shoes, qt: shoes } }
+    - { path: "$.ads[0]", mode: strict, equals: { title: Red shoes, qt: shoes, section: top, price: 120 } }
+    - { path: "$.requestId", notEquals: req-43 }
+    - { path: "$.gtin", exists: true }
+    - { path: "$.gtin", isNull: true }
+    - { path: "$.ads[0].asin", isNull: true }
+    - { path: "$.ads[0].asin", absent: true }
+    - { path: "$.ads[2].asin", notNull: true }
+    - { path: "$.ads", size: 3 }
+    - { path: "$.ads[?(@.qt == 'shoes')]", size: 2 }
+    - { path: "$.ads[?(@.qt == 'boots')]", size: 0 }
+    - { path: "$.ads[0].price", gte: 120 }
+    - { path: "$.ads[1].price", lte: 80 }
+    - { path: "$.ads.length()", lte: 3 }
+    - { path: "$.ads[*].qt", contains: socks }
+    - { path: "$.ads[*].section", contains: [ top, side ] }
+    - { path: "$.ads[0].title", contains: shoe }
+    - { path: "$.ads[0].title", contains: [ Red, shoe ] }
+    - { path: "$.ads[*].title", containsExactly: [ Red shoes, Blue shoes, Socks ] }
+    - { path: "$.ads[*].section", containsInAnyOrder: [ side, top, top ] }
+    - { path: "$.ads[*].title", unique: true }
+    - { path: "$.requestId", startsWith: req- }
+    - { path: "$.ads[2].asin", matches: "B0+[A-Z]+" }
+    - { path: "$.ads", all: { path: "$.price", gte: 10 } }
+    - { path: "$.ads[?(@.qt == 'shoes')]", none: { path: "$.asin", exists: true } }
+    - { path: "$.diag[0].payload", parseJson: true, equals: { dropped: [ ad-9 ] } }
+    - { path: "$.diag[?(@.step == 'dedup')].payload", parseJson: true, all: { path: "$.dropped", size: 1 } }

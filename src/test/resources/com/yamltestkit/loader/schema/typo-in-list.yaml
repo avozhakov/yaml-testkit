@@ -1,0 +1,8 @@
+cases:
+  - name: fine
+    call: { http: GET /is }
+  - name: typo in assert
+    call: { http: GET /is }
+    expect:
+      assert:
+        - { path: "$.ads", sise: 2 }
