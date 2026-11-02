@@ -1,7 +1,7 @@
 # Absent key versus null value (row 35; model: ProductAdIdentifierNotInResponseIT, which asserts that no product ad
 # exposes asin / gtin with `ad.has(field)` being false). The ad response omits a null asin but always writes gtin,
 # as null when the DSP sent none; the captured AdRequest omits a null publisher.competitivenessId.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
   expect: { status: 200 }
 cases:

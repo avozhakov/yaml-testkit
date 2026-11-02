@@ -19,10 +19,10 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Loads a case file: YAML → schema validation → {@code defaults} merge → model (call kind and fields) → kind rules
- * and reference order. A file that fails before the cases are split (invalid YAML, schema) yields one
- * {@link BrokenCase} named {@value #INVALID_FILE}; a case that fails afterwards (missing payload file, rule
- * violation) yields a {@link BrokenCase} with its own name, so the other cases of the file still run.
+ * Loads a case file: YAML → schema validation → {@code define} dropped → {@code caseDefaults} merge → model (call
+ * kind and fields) → kind rules and reference order. A file that fails before the cases are split (invalid YAML,
+ * schema) yields one {@link BrokenCase} named {@value #INVALID_FILE}; a case that fails afterwards (missing payload
+ * file, rule violation) yields a {@link BrokenCase} with its own name, so the other cases of the file still run.
  */
 @RequiredArgsConstructor
 public final class CaseFileLoader {
@@ -41,8 +41,9 @@ public final class CaseFileLoader {
         } catch (CaseDefinitionException e) {
             return new CaseFile(source, List.of(new BrokenCase(INVALID_FILE, source, e.getMessage())));
         }
+        Nodes.dropDefine(root);
         CaseBinder binder = new CaseBinder(source, new PayloadResolver(caseResource.resource()));
-        JsonNode defaults = root.path("defaults");
+        JsonNode defaults = root.path("caseDefaults");
         List<JsonNode> rawCases = root.has("cases") ? Nodes.list(root.get("cases"), node -> node) : List.of(root);
         List<CaseEntry> cases = new ArrayList<>(rawCases.size());
         Set<String> names = new HashSet<>();

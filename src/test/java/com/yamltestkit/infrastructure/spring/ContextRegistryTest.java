@@ -26,7 +26,7 @@ class ContextRegistryTest {
     private static final ContextFile CONTEXT = new ContextFile("cases/_context.yaml", "com.example.App", List.of(),
             ContextVariant.EMPTY, Map.of(), List.of(), List.of(), 0);
     private static final RootConfiguration ROOT = new RootConfiguration("cases/", CONTEXT, StubSet.EMPTY,
-            "cases/_defaults.yaml", null);
+            "cases/_caseDefaults.yaml", null);
     private static final VariantPlan PLAN = new VariantPlan(new VariantKey("cases/", null), ROOT, CONTEXT,
             "com.example.App", Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of());
 

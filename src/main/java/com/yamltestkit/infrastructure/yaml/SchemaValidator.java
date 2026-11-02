@@ -75,7 +75,7 @@ public final class SchemaValidator {
     public enum FileKind {
         CASE_FILE("caseFile"),
         CONTEXT_FILE("contextFile"),
-        DEFAULTS_FILE("defaultsFile");
+        DEFAULTS_FILE("caseDefaultsFile");
 
         private final String definition;
 

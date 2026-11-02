@@ -115,7 +115,7 @@ class ContextStarterIT {
     private static VariantPlan plan() {
         ContextFile context = new ContextFile(LABEL, StarterApplication.class.getName(), List.of(),
                 ContextVariant.EMPTY, Map.of(), List.of("partner"), List.of(), 0);
-        RootConfiguration root = new RootConfiguration("cases/", context, StubSet.EMPTY, "cases/_defaults.yaml",
+        RootConfiguration root = new RootConfiguration("cases/", context, StubSet.EMPTY, "cases/_caseDefaults.yaml",
                 null);
         return new VariantPlan(new VariantKey("cases/", null), root, context, StarterApplication.class.getName(),
                 PROPERTIES, Map.of("greeting", new MockBean("greeting", null, false, List.of(GREETING_STUB))),

@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * A bean that exists only while {@code fixture.optional-feature} is {@code on} (imitates the eBay direct-path beans):
- * {@code _defaults.yaml} mocks it, and the {@code eco} variant, which turns it off, must still start.
+ * {@code _caseDefaults.yaml} mocks it, and the {@code eco} variant, which turns it off, must still start.
  */
 @Component
 @ConditionalOnProperty(name = "fixture.optional-feature", havingValue = "on")

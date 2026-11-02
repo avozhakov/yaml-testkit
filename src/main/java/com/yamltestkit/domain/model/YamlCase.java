@@ -9,7 +9,8 @@ import java.util.Set;
 /**
  * A validated case. A case written with a single {@code call} has one implicit step named {@link Step#IMPLICIT_NAME}.
  *
- * @param fileDefaults stubs from the file's {@code defaults} block, a layer between {@code _defaults.yaml} and the case
+ * @param fileDefaults stubs from the file's {@code caseDefaults} block, a layer between {@code _caseDefaults.yaml} and
+ *                     the case
  * @param stubs        the case's own {@code mocks}, {@code spies} and {@code http} stubs
  * @param context      the variant named by {@code context}, or {@code null} for the default variant
  */

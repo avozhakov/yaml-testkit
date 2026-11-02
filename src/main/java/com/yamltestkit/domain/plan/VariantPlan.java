@@ -11,16 +11,16 @@ import java.util.Set;
 
 /**
  * Everything needed to start one context variant, known before it starts: the merged properties and the beans
- * replaced by name. A bean referenced only by a case or {@code _defaults.yaml} is a {@link MockBean} / {@link SpyBean}
- * without type and boot-time stubs.
+ * replaced by name. A bean referenced only by a case or {@code _caseDefaults.yaml} is a {@link MockBean} /
+ * {@link SpyBean} without type and boot-time stubs.
  *
  * @param properties  base properties overridden by the variant's, {@code ${wiremock.*}} placeholders unresolved
  * @param mocks       mocked beans by name
  * @param spies       spied beans by name
  * @param values      value beans by name
  * @param references  every file that references each replaced bean, for error messages
- * @param defaultsOnly the mocked or spied beans that only {@code _defaults.yaml} names: skipped, with their
- *                     {@code _defaults.yaml} stubs, when the variant's context has no such bean
+ * @param defaultsOnly the mocked or spied beans that only {@code _caseDefaults.yaml} names: skipped, with their
+ *                     {@code _caseDefaults.yaml} stubs, when the variant's context has no such bean
  * @param loggers     the loggers named by the {@code expect.logs} entries of the variant's cases, captured from the
  *                    moment its context starts
  */

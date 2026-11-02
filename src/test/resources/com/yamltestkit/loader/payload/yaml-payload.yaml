@@ -1,0 +1,4 @@
+name: yaml payload file with anchors
+call:
+  http: POST /discover
+  body: { file: data/request.yaml }

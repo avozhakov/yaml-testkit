@@ -1,6 +1,6 @@
 # A raw, pre-encoded query sent as written (row 2; model: QueryTermAsReceivedIT, whose client builds the query string
 # itself): the qt reaches the DSP as received, decoded exactly once by the servlet container.
-defaults:
+caseDefaults:
   call: { http: GET /ads }
 cases:
   - name: raw query is sent as written

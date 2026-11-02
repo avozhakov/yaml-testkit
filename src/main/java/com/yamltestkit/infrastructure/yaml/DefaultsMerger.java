@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Set;
 
 /**
- * Merges a file's {@code defaults} into one of its cases. Structural objects ({@code call}, its {@code query},
+ * Merges a file's {@code caseDefaults} into one of its cases. Structural objects ({@code call}, its {@code query},
  * {@code headers} and {@code deps}, {@code expect}, {@code bodyText}) merge key by key; any other value
  * of the case, payloads included, replaces the default (case values win, a YAML {@code null} included).
  * {@code mocks}, {@code spies} and {@code http} are not merged: they form their own stub layer, so a case's stub

@@ -1,7 +1,7 @@
 # One case per verification kind, each on calls that must make it fail. An ad request calls placementAccess,
 # providerRegistry, dspClient and auditService.recordResponse once, posts once to the tracking service and sends the
 # request and response events to eventLogger from another thread.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
 cases:
   - name: times

@@ -2,11 +2,11 @@
 # one URL result per ad of the captured request, keyed by the ad selection id generated at runtime). The migration
 # moves such computing answers to WireMock response templating; the tracking client keeps a click URL only for the
 # item ids it sent, so an ad keeps its clickUrl only if the template answered its id.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
   expect: { status: 200 }
 cases:
-  - name: the _defaults.yaml template answers every item with its own id
+  - name: the _caseDefaults.yaml template answers every item with its own id
     expect:
       assert:
         - { path: "$.ads", size: 2 }

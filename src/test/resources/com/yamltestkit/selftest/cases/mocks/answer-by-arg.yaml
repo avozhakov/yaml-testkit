@@ -1,7 +1,7 @@
 # Answers keyed by the argument value (row 18, bean part; model: the ITs stubbing a lookup per key, e.g.
 # feedCacheAccess.getFeed(FeedProviderKey.AMP_DSP)). Stubs of one method with different `args` coexist; any other
 # argument gets the Mockito default, Optional.empty(). HTTP answers computed from the request: wiremock/templated.yaml.
-defaults:
+caseDefaults:
   mocks:
     - { bean: providerRegistry, method: find, args: [ amazon ], returns: { name: amazon, maxAds: 1 } }
     - { bean: providerRegistry, method: find, args: [ ebay ], returns: null }
@@ -25,7 +25,7 @@ cases:
       verify:
         - { bean: dspClient, method: requestAds, never: true }
 
-  - name: dsp still gets the _defaults.yaml provider
+  - name: dsp still gets the _caseDefaults.yaml provider
     call: { query: { plid: 14019, qt: shoes, provider: dsp } }
     expect:
       assert:

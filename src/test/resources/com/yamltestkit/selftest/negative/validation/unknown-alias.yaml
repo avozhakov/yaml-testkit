@@ -1,0 +1,6 @@
+# An alias whose anchor is not defined (a typo): the whole file fails to load, naming the alias and its line, instead of
+# sending the anchor name as a string.
+name: alias to a missing anchor
+call:
+  http: POST /discover
+  body: *reqest

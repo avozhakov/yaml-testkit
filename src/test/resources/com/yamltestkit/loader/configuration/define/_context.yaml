@@ -1,0 +1,6 @@
+define:
+  sources: &sources { sources: [] }
+  not-a-context: { application: 7, unknown: true }
+application: com.example.App
+valueBeans:
+  - { name: exchangeSources, type: com.example.Sources, value: *sources }

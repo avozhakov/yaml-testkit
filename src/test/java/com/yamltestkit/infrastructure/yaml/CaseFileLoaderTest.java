@@ -13,12 +13,15 @@ import com.yamltestkit.domain.model.CaseDefinitionException;
 import com.yamltestkit.domain.model.CaseEntry;
 import com.yamltestkit.domain.model.CaseFile;
 import com.yamltestkit.domain.model.CaseSource;
+import com.yamltestkit.domain.model.MethodRef;
 import com.yamltestkit.domain.model.Query;
 import com.yamltestkit.domain.model.Step;
+import com.yamltestkit.domain.model.Stub;
 import com.yamltestkit.domain.model.StubAnswer;
 import com.yamltestkit.domain.model.TextOperator;
 import com.yamltestkit.domain.model.VerifyCheck;
 import com.yamltestkit.domain.model.YamlCase;
+import org.assertj.core.groups.Tuple;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -29,6 +32,7 @@ import java.util.Map;
 
 import static com.yamltestkit.domain.json.JsonTestFixtures.json;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -96,13 +100,23 @@ class CaseFileLoaderTest {
     }
 
     @Test
+    void load_whenAnAliasHasNoAnchor_shouldRejectTheFileNamingTheAliasAndItsLine() {
+        CaseFile result = underTest.load(resource("schema/unknown-alias.yaml"));
+
+        assertThat(result.cases()).singleElement().extracting(CaseFileLoaderTest::brokenReason).asString()
+                .startsWith(ROOT + "schema/unknown-alias.yaml: invalid YAML")
+                .contains("unknown alias '*nowhere'", "line: 5, column: 11");
+        verify(mockSchemaValidator, never()).validate(any(), any(), any());
+    }
+
+    @Test
     void load_whenDefaultsMergeReturnsIntoACaseThatExpectsThrows_shouldRejectThatCase() {
         CaseFile result = underTest.load(resource("rules/returns-and-throws.yaml"));
 
         assertOutcomes(result.cases(),
                 "returns: valid",
                 "throws: step 'main' (class call): `returns` and `throws` exclude each other; one of them may come from"
-                        + " the file's `defaults`");
+                        + " the file's `caseDefaults`");
     }
 
     @Test
@@ -114,16 +128,16 @@ class CaseFileLoaderTest {
                 "two kinds in one call: step 'main': call has conflicting keys [http, bean]; exactly one of http, bean,"
                         + " class is allowed",
                 "two kinds in a step's call: step 'second': call has conflicting keys [bean, class]");
-        assertThat(brokenReason(result.cases().get(1))).doesNotContain("defaults");
+        assertThat(brokenReason(result.cases().get(1))).doesNotContain("caseDefaults");
     }
 
     @Test
     void load_whenTheDefaultCallHasTwoKinds_shouldBreakEveryCaseOfTheFile() {
-        CaseFile result = underTest.load(resource("defaults/two-kinds-in-defaults.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/two-kinds-in-case-defaults.yaml"));
 
         assertOutcomes(result.cases(),
                 "first: step 'main': call has conflicting keys [http, bean]; exactly one of http, bean, class is"
-                        + " allowed (one of them may come from the file's defaults)",
+                        + " allowed (one of them may come from the file's `caseDefaults`)",
                 "second: step 'main': call has conflicting keys [http, bean]");
     }
 
@@ -137,6 +151,17 @@ class CaseFileLoaderTest {
         assertThat(step.expect().body().mode()).isEqualTo(BodyMode.LENIENT);
         assertThat(step.expect().bodyText().matchers())
                 .containsEntry(TextOperator.CONTAINS, List.of("needle", "inline"));
+    }
+
+    @Test
+    void load_whenPayloadFileIsYaml_shouldResolveItsAliasesAndMergeKeys() {
+        CaseFile result = underTest.load(resource("payload/yaml-payload.yaml"));
+
+        Step step = singleStep(result.cases().getFirst());
+        assertThat(((Call.Http) step.call()).body()).isEqualTo(json("""
+                {"base": {"prompt": "running shoes", "ad_count": 2},
+                 "intent": {"prompt": "running shoes", "ad_count": 1},
+                 "copy": {"prompt": "running shoes", "ad_count": 2}}"""));
     }
 
     @Test
@@ -206,7 +231,7 @@ class CaseFileLoaderTest {
 
     @Test
     void load_whenFileHasDefaults_shouldMergeThemIntoEachCaseWithCaseValuesWinning() {
-        CaseFile result = underTest.load(resource("defaults/defaults-merge.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/case-defaults-merge.yaml"));
 
         Step inherited = singleStep(result.cases().get(0));
         Step overridden = singleStep(result.cases().get(1));
@@ -224,7 +249,7 @@ class CaseFileLoaderTest {
 
     @Test
     void load_whenFileHasDefaultStubs_shouldKeepThemAsTheirOwnLayer() {
-        CaseFile result = underTest.load(resource("defaults/defaults-merge.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/case-defaults-merge.yaml"));
 
         YamlCase inherited = (YamlCase) result.cases().get(0);
         YamlCase overridden = (YamlCase) result.cases().get(1);
@@ -236,7 +261,7 @@ class CaseFileLoaderTest {
 
     @Test
     void load_whenDefaultCallKindDiffersFromTheCase_shouldReportConflictingKeys() {
-        CaseFile result = underTest.load(resource("defaults/defaults-conflict.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/case-defaults-conflict.yaml"));
 
         assertThat(brokenReason(result.cases().getFirst()))
                 .contains("case 'bean call over an http default'", "conflicting keys [http, bean]");
@@ -244,16 +269,17 @@ class CaseFileLoaderTest {
 
     @Test
     void load_whenACaseAddsAFieldOfAnotherKindToTheDefaultCall_shouldBreakThatCase() {
-        CaseFile result = underTest.load(resource("defaults/defaults-conflict.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/case-defaults-conflict.yaml"));
 
-        assertThat(brokenReason(result.cases().get(1))).isEqualTo(ROOT + "defaults/defaults-conflict.yaml, case 'deps"
-                + " over an http default': step 'main': call has `deps`, which does not apply to http calls (it may"
-                + " come from the file's defaults); http calls take query, rawQuery, headers, body");
+        assertThat(brokenReason(result.cases().get(1))).isEqualTo(ROOT + "case-defaults/case-defaults-conflict.yaml,"
+                + " case 'deps over an http default': step 'main': call has `deps`, which does not apply to http"
+                + " calls (it may come from the file's `caseDefaults`); http calls take query, rawQuery, headers,"
+                + " body");
     }
 
     @Test
     void load_whenACaseSetsTheDefaultHttpToNullBesideABean_shouldReportConflictingKeys() {
-        CaseFile result = underTest.load(resource("defaults/defaults-conflict.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/case-defaults-conflict.yaml"));
 
         assertThat(brokenReason(result.cases().get(2))).contains("case 'null http beside a bean over an http default'",
                 "step 'main': call has conflicting keys [http, bean]");
@@ -270,11 +296,11 @@ class CaseFileLoaderTest {
 
     @Test
     void load_whenDefaultQueryMeetsACaseRawQuery_shouldBreakThatCase() {
-        CaseFile result = underTest.load(resource("defaults/query-conflict.yaml"));
+        CaseFile result = underTest.load(resource("case-defaults/query-conflict.yaml"));
 
-        assertThat(brokenReason(result.cases().getFirst())).isEqualTo(ROOT + "defaults/query-conflict.yaml, case"
+        assertThat(brokenReason(result.cases().getFirst())).isEqualTo(ROOT + "case-defaults/query-conflict.yaml, case"
                 + " 'rawQuery over a default query': step 'main': call has both `query` and `rawQuery` (one of them"
-                + " may come from the file's defaults); use one of them");
+                + " may come from the file's `caseDefaults`); use one of them");
     }
 
     @Test
@@ -369,9 +395,53 @@ class CaseFileLoaderTest {
                 + " name in two spellings': header 'x-key' is given twice; header names are case-insensitive");
     }
 
+    @Test
+    void load_whenDefineHoldsNestedAnchors_shouldResolveTheAliasesAndMergeKeysOfTheCases() {
+        CaseFile result = underTest.load(resource("define/define-in-list.yaml"));
+
+        Step alias = singleStep(result.cases().get(0));
+        Step merge = singleStep(result.cases().get(1));
+        assertThat(((Call.Http) alias.call()).body()).isEqualTo(json("""
+                {"intent": {"prompt": "running shoes", "ad_count": 2}, "meta": {"request_id": "req-1"}}"""));
+        assertThat(((Call.Http) merge.call()).body()).isEqualTo(json("""
+                {"intent": {"prompt": "running shoes", "ad_count": 1}, "meta": {"request_id": "req-1"}}"""));
+        assertThat(alias.expect().status()).isEqualTo(200);
+        assertThat(merge.expect().status()).isEqualTo(200);
+        assertThat(merge.expect().headers()).containsExactly(Map.entry("Content-Type", "application/json"));
+    }
+
+    @Test
+    void load_whenFileHasDefine_shouldLoadTheSameCasesAsTheFileWithTheFragmentsWrittenOut() {
+        CaseFile withDefine = underTest.load(resource("define/define-in-list.yaml"));
+        CaseFile writtenOut = underTest.load(resource("define/inline.yaml"));
+
+        assertThat(withDefine.cases()).hasSize(2).allMatch(YamlCase.class::isInstance);
+        assertThat(withoutSource(withDefine)).isEqualTo(withoutSource(writtenOut));
+    }
+
+    @Test
+    void load_whenSingleCaseFileHasDefine_shouldBindTheCaseWithTheMergedFragment() {
+        CaseFile result = underTest.load(resource("define/define-in-single-case.yaml"));
+
+        YamlCase yamlCase = (YamlCase) result.cases().getFirst();
+        assertThat(yamlCase.name()).isEqualTo("single case with define");
+        assertThat(yamlCase.stubs().mocks()).singleElement().isEqualTo(new BeanEntry("placementAccess",
+                List.of(new Stub(new MethodRef("getPlacement", null), null,
+                        new StubAnswer.Returns(json("{\"id\": 1}"))))));
+    }
+
     private static CaseResource resource(String relativePath) {
         CaseSource source = new CaseSource(URI.create("classpath:/" + ROOT + relativePath), ROOT, relativePath);
         return new CaseResource(new ClassPathResource(ROOT + relativePath), source);
+    }
+
+    /** Each case's content without its source, which differs between two files. */
+    private static List<Tuple> withoutSource(CaseFile file) {
+        return file.cases().stream()
+                .map(YamlCase.class::cast)
+                .map(yamlCase -> tuple(yamlCase.name(), yamlCase.steps(), yamlCase.fileDefaults(), yamlCase.stubs(),
+                        yamlCase.context(), yamlCase.freshContext()))
+                .toList();
     }
 
     private static Step singleStep(CaseEntry entry) {

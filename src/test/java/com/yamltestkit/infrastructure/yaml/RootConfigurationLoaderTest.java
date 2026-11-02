@@ -2,6 +2,8 @@ package com.yamltestkit.infrastructure.yaml;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.MissingNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.yamltestkit.domain.json.JsonMappers;
 import com.yamltestkit.domain.model.BeanEntry;
 import com.yamltestkit.domain.model.CaseDefinitionException;
@@ -13,6 +15,7 @@ import com.yamltestkit.domain.model.RootConfiguration;
 import com.yamltestkit.domain.model.SpyBean;
 import com.yamltestkit.domain.model.Stub;
 import com.yamltestkit.domain.model.StubAnswer;
+import com.yamltestkit.domain.model.StubResponse;
 import com.yamltestkit.domain.model.StubSet;
 import com.yamltestkit.domain.model.ValueBean;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -76,7 +80,7 @@ class RootConfigurationLoaderTest {
                         new StubAnswer.Returns(IntNode.valueOf(1)))))), List.of())));
         assertThat(root.defaults().mocks()).extracting(BeanEntry::bean).containsExactly("placementAccess");
         assertThat(root.defaults().http()).hasSize(1);
-        assertThat(root.defaultsLabel()).isEqualTo(ROOT + "full/_defaults.yaml");
+        assertThat(root.defaultsLabel()).isEqualTo(ROOT + "full/_caseDefaults.yaml");
     }
 
     @Test
@@ -89,7 +93,7 @@ class RootConfigurationLoaderTest {
         verify(mockSchemaValidator).validate(contextTree.capture(), eq(SchemaValidator.FileKind.CONTEXT_FILE),
                 eq(ROOT + "full/_context.yaml"));
         verify(mockSchemaValidator).validate(defaultsTree.capture(), eq(SchemaValidator.FileKind.DEFAULTS_FILE),
-                eq(ROOT + "full/_defaults.yaml"));
+                eq(ROOT + "full/_caseDefaults.yaml"));
         assertThat(contextTree.getValue().path("application").asText()).isEqualTo("com.example.App");
         assertThat(defaultsTree.getValue().path("mocks").path(0).path("bean").asText()).isEqualTo("placementAccess");
     }
@@ -99,7 +103,7 @@ class RootConfigurationLoaderTest {
         Map<String, RootConfiguration> result = underTest.load(List.of(ROOT + "missing/**"));
 
         assertThat(result).containsExactly(Map.entry(ROOT + "missing/", new RootConfiguration(ROOT + "missing/",
-                null, StubSet.EMPTY, ROOT + "missing/_defaults.yaml", null)));
+                null, StubSet.EMPTY, ROOT + "missing/_caseDefaults.yaml", null)));
         verify(mockSchemaValidator, never()).validate(any(), any(), any());
     }
 
@@ -143,6 +147,19 @@ class RootConfigurationLoaderTest {
         verify(mockSchemaValidator).validate(contextTree.capture(), eq(SchemaValidator.FileKind.CONTEXT_FILE),
                 eq(ROOT + "full/_context.yaml"));
         assertThat(contextTree.getAllValues()).hasSize(1);
+    }
+
+    @Test
+    void load_whenBothFilesHaveDefine_shouldBindTheAliasedFragmentsAndIgnoreTheBlock() {
+        RootConfiguration result = underTest.load(List.of(ROOT + "define/**")).get(ROOT + "define/");
+
+        assertThat(result.failure()).isNull();
+        assertThat(result.context().application()).isEqualTo("com.example.App");
+        assertThat(result.context().base().valueBeans())
+                .containsExactly(new ValueBean("exchangeSources", "com.example.Sources", SOURCES, false));
+        assertThat(result.defaults().http()).extracting(stub -> stub.responses().getFirst())
+                .extracting(StubResponse::status, StubResponse::body)
+                .containsExactly(tuple(200, MissingNode.getInstance()), tuple(200, TextNode.valueOf("ready")));
     }
 
     private static JsonNode json(String text) {

@@ -1,6 +1,6 @@
 # A real object around an inner mock (row 24; model: IntentFilter, real, around the mocked intent-identifier client):
 # OuterService stays real and filters the query terms; only InnerClient, its boundary, is mocked.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: '["shoes","socks"]', v: "2.1" } }
   expect: { status: 200 }
 cases:

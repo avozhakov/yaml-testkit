@@ -1,5 +1,5 @@
 # expect.throws on a unit call: type by simple or qualified name, optional exact message.
-defaults:
+caseDefaults:
   call: { class: com.yamltestkit.selftest.unit.InventoryCheck, method: available }
 
 cases:

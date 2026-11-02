@@ -1,0 +1,6 @@
+# `define` is a top-level key only: inside a case of the list the whole file fails schema validation.
+cases:
+  - name: define inside a case
+    define: { ok: &ok { status: 200 } }
+    call: { http: GET /golden }
+    expect: *ok

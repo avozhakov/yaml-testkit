@@ -30,8 +30,8 @@ import java.util.Set;
  * context is acquired, so a context started now keeps what its startup stubbed); get or start the context; after a
  * shared context starts, wait {@code settleMs} for its warm-up work, then forget the calls, requests and log events
  * its startup made (a fresh context keeps them, so its case can check them); then register the stub layers boot-time
- * {@code stubs} → {@code _defaults.yaml} → file {@code defaults} → case. Each step's stubs are added on top before
- * the step runs. A bean only {@code _defaults.yaml} names that the context lacks has its stubs skipped.
+ * {@code stubs} → {@code _caseDefaults.yaml} → file {@code caseDefaults} → case. Each step's stubs are added on top
+ * before the step runs. A bean only {@code _caseDefaults.yaml} names that the context lacks has its stubs skipped.
  */
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public final class SpringCaseLifecycle implements AutoCloseable {
@@ -131,12 +131,12 @@ public final class SpringCaseLifecycle implements AutoCloseable {
         List<StubLayers.BeanStub> beanStubs = StubLayers.merge(List.of(
                 bootStubs(plan),
                 defaults,
-                StubLayers.beanStubs(yamlCase.fileDefaults(), where + ", file defaults"),
+                StubLayers.beanStubs(yamlCase.fileDefaults(), where + ", caseDefaults"),
                 StubLayers.beanStubs(yamlCase.stubs(), where)), StubLayers.BeanStub::key);
         beanStubs.forEach(stub -> apply(running, stub, errors));
         List<StubLayers.HttpStubAt> httpStubs = StubLayers.merge(List.of(
                 StubLayers.httpStubs(root.defaults(), root.defaultsLabel()),
-                StubLayers.httpStubs(yamlCase.fileDefaults(), where + ", file defaults"),
+                StubLayers.httpStubs(yamlCase.fileDefaults(), where + ", caseDefaults"),
                 StubLayers.httpStubs(yamlCase.stubs(), where)), StubLayers.HttpStubAt::key);
         httpStubs.forEach(stub -> caseContext.wireMock().register(stub.stub(), stub.where()));
     }

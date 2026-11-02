@@ -40,7 +40,7 @@ import java.util.Map;
  * A replaced definition keeps the original's qualifiers, {@code fallback} and lazy-init flags, and is primary when
  * the original or the entry is. An alias resolves to the bean it names. A mocked or spied name with no definition
  * (and, for a mock, no {@code type}) fails the startup, naming every file that references the bean, unless only
- * {@code _defaults.yaml} names it: then the variant simply has no such bean. A name matching a singleton registered
+ * {@code _caseDefaults.yaml} names it: then the variant simply has no such bean. A name matching a singleton registered
  * without a definition fails, since such a bean can't be replaced.
  */
 @RequiredArgsConstructor
@@ -111,7 +111,7 @@ final class BeanOverridePostProcessor implements BeanFactoryPostProcessor {
         registry.registerBeanDefinition(definitionName != null ? definitionName : value.name(), definition);
     }
 
-    /** Spied beans by the name of their definition; a bean only {@code _defaults.yaml} names may be missing. */
+    /** Spied beans by the name of their definition; a bean only {@code _caseDefaults.yaml} names may be missing. */
     private Map<String, SpyBean> spiesByDefinition(ConfigurableListableBeanFactory factory,
                                                    BeanDefinitionRegistry registry) {
         Map<String, SpyBean> spies = new HashMap<>();

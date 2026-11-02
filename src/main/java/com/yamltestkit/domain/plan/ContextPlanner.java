@@ -27,13 +27,13 @@ import java.util.stream.Stream;
 /**
  * Plans every variant of every glob root before any context starts. The beans a variant mocks or spies are those of
  * {@code _context.yaml} (base and variant entries, the variant's winning by name) plus every bean that
- * {@code _defaults.yaml} or any loaded {@code http} / {@code bean} case of the variant names under {@code mocks} /
+ * {@code _caseDefaults.yaml} or any loaded {@code http} / {@code bean} case of the variant names under {@code mocks} /
  * {@code spies}: once one case mocks a bean, it is a mock for the whole variant. All loaded cases count, not only the
  * selected ones, so a case behaves the same whether it runs alone or with the others. A bean both mocked and spied,
- * or replaced by a value bean and also mocked or spied, fails the variant. A bean only {@code _defaults.yaml} names is
- * marked as such, so a variant whose context has no such bean skips it instead of failing to start. The loggers the
- * variant's cases name in {@code expect.logs} are collected too, so their events are captured from the moment the
- * context starts.
+ * or replaced by a value bean and also mocked or spied, fails the variant. A bean only {@code _caseDefaults.yaml}
+ * names is marked as such, so a variant whose context has no such bean skips it instead of failing to start. The
+ * loggers the variant's cases name in {@code expect.logs} are collected too, so their events are captured from the
+ * moment the context starts.
  */
 public final class ContextPlanner {
 

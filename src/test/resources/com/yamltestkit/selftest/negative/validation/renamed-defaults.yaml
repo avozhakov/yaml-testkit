@@ -1,0 +1,6 @@
+# The former name of the `caseDefaults` block: the whole file fails schema validation instead of the block being
+# silently ignored.
+defaults:
+  call: { http: GET /golden }
+cases:
+  - name: inherits the old block

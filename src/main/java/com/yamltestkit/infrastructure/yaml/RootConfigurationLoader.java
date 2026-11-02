@@ -22,10 +22,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Loads {@code _context.yaml} and {@code _defaults.yaml} from the root folder of each {@code @YamlCases} glob (the
- * path before its first wildcard segment), schema-validated; {@code { file }} payloads resolve relative to the file.
- * A missing file is allowed; a broken one (including a {@code converters} entry that is not a loadable
- * {@code ValueConverter}) is kept as the root's failure instead of failing the whole suite.
+ * Loads {@code _context.yaml} and {@code _caseDefaults.yaml} from the root folder of each {@code @YamlCases} glob (the
+ * path before its first wildcard segment), schema-validated; a top-level {@code define} block is dropped after
+ * validation and {@code { file }} payloads resolve relative to the file. A missing file is allowed; a broken one
+ * (including a {@code converters} entry that is not a loadable {@code ValueConverter}) is kept as the root's failure
+ * instead of failing the whole suite.
  */
 @RequiredArgsConstructor
 public final class RootConfigurationLoader {
@@ -60,6 +61,7 @@ public final class RootConfigurationLoader {
         }
         JsonNode node = YamlFiles.read(resource, label);
         schemaValidator.validate(node, SchemaValidator.FileKind.CONTEXT_FILE, label);
+        Nodes.dropDefine(node);
         StubBinder stubs = new StubBinder(new PayloadResolver(resource));
         Map<String, ContextVariant> variants = new LinkedHashMap<>();
         node.path("variants").properties().forEach(entry -> variants.put(entry.getKey(),
@@ -87,6 +89,7 @@ public final class RootConfigurationLoader {
         }
         JsonNode node = YamlFiles.read(resource, label);
         schemaValidator.validate(node, SchemaValidator.FileKind.DEFAULTS_FILE, label);
+        Nodes.dropDefine(node);
         try {
             return new StubBinder(new PayloadResolver(resource)).stubSet(node);
         } catch (CaseDefinitionException e) {

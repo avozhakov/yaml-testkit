@@ -1,0 +1,43 @@
+# YAML anchors, aliases and `<<` merge keys share one request body between cases. The shared fragments live in the
+# top-level `define` block, which the engine never applies: it only anchors the body (`&request`) and its intent
+# (`&intent`). Cases reuse them with an alias (`*request`) or merge them and override single keys (`<<: *intent`).
+# A merge is shallow, so the case that changes `intent.ad_count` merges at the intent level. The partner verify proves
+# that the application received the resolved values, not the anchor names.
+define:
+  request: &request
+    intent: &intent { prompt: running shoes, ad_count: 2 }
+    meta: { request_id: req-anchor }
+  partner-search: &partner-search { service: partner, method: POST, path: /search }
+caseDefaults:
+  http:
+    - <<: *partner-search
+      response:
+        status: 200
+        headers: { Content-Type: application/json }
+        body: { items: [ { id: i1, title: Pegasus 41 } ] }
+  call:
+    http: POST /discover
+    headers: { x-discover-version: "3.0" }
+cases:
+  - name: an alias sends a copy of the defined body
+    call: { body: *request }
+    expect:
+      status: 200
+      assert: [ { path: "$.request_id", equals: req-anchor } ]
+      verify:
+        - <<: *partner-search
+          times: 1
+          assert: [ { path: "$[0].body", equals: { query: running shoes, limit: 2 }, mode: strict } ]
+
+  - name: merge keys keep the defined keys and override ad_count
+    call:
+      body:
+        <<: *request
+        intent: { <<: *intent, ad_count: 1 }
+    expect:
+      status: 200
+      assert: [ { path: "$.request_id", equals: req-anchor } ]
+      verify:
+        - <<: *partner-search
+          times: 1
+          assert: [ { path: "$[0].body", equals: { query: running shoes, limit: 1 }, mode: strict } ]

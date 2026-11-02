@@ -48,8 +48,8 @@ public final class YamlCaseEngine implements AutoCloseable {
     private final AntPathMatcher filterMatcher = new AntPathMatcher();
 
     /**
-     * Reads {@code _context.yaml} / {@code _defaults.yaml} of each glob root up front: their {@code converters} join
-     * the converter chain, after those of {@code @YamlCases}.
+     * Reads {@code _context.yaml} / {@code _caseDefaults.yaml} of each glob root up front: their {@code converters}
+     * join the converter chain, after those of {@code @YamlCases}.
      */
     public static YamlCaseEngine create(SuiteSettings settings) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();

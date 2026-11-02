@@ -1,0 +1,5 @@
+name: alias without an anchor
+call:
+  class: com.example.Unit
+  method: run
+  args: [ *nowhere ]

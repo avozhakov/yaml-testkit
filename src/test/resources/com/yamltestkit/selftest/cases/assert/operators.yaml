@@ -1,7 +1,7 @@
 # The assert operators on an HTTP response (rows 29, 30, 52; models: the JsonNode helpers of Java ITs —
 # count ads by a predicate, all / none of the ads have a field, size, at most N — and MockMvc jsonPath matchers:
 # value, hasSize, exists, doesNotExist, empty, hasItems). A v2.1 JSON-array qt makes every ad render its qt.
-defaults:
+caseDefaults:
   mocks:
     - bean: dspClient
       method: requestAds

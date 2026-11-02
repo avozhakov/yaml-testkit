@@ -1,7 +1,7 @@
 # A pass-through answer (row 17; model: AbstractSpringBootIT's pricingEnricher stub
 # `thenAnswer(inv -> Validation.valid(inv.getArgument(0)))`): `returnsArg` hands the context back, wrapped by the
 # Validation converter, so the rest of the flow carries on with the request the enricher was given.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
 cases:
   - name: enricher stubbed as a pass-through keeps the request flowing

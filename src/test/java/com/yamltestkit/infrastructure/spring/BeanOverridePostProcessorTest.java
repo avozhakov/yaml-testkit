@@ -333,7 +333,7 @@ class BeanOverridePostProcessorTest {
                                                 Map<String, ValueBean> values, Set<String> defaultsOnly) {
         ContextFile context = new ContextFile(LABEL, "com.example.App", List.of(), ContextVariant.EMPTY, Map.of(),
                 List.of(), List.of(), 0);
-        RootConfiguration root = new RootConfiguration("cases/", context, StubSet.EMPTY, "cases/_defaults.yaml",
+        RootConfiguration root = new RootConfiguration("cases/", context, StubSet.EMPTY, "cases/_caseDefaults.yaml",
                 null);
         Map<String, Set<String>> references = Map.of(
                 "campainClient", new TreeSet<>(List.of("cases/a.yaml", "cases/b.yaml")),

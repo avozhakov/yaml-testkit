@@ -1,0 +1,6 @@
+define:
+  ok: &ok { status: 200 }
+  not-case-defaults: { mocks: oops }
+http:
+  - { service: partner, path: /health, response: *ok }
+  - { service: partner, path: /ready, response: { <<: *ok, body: ready } }

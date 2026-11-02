@@ -1,7 +1,7 @@
 # Exact order versus any order (row 34; model: ExpandedQueryTermRestorationIT, whose DSP stub returns the ads in
 # reverse order — "restoration must not depend on the order DSP returns ads in" — and which then checks the ids with
 # containsExactlyInAnyOrderElementsOf, while ranking checks use containsExactly). The response keeps the DSP order.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: lamp } }
   expect: { status: 200 }
 cases:

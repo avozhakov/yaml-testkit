@@ -37,7 +37,7 @@ class ContextPlannerTest {
 
     private static final String ROOT = "cases/";
     private static final String CONTEXT_LABEL = "cases/_context.yaml";
-    private static final String DEFAULTS_LABEL = "cases/_defaults.yaml";
+    private static final String DEFAULTS_LABEL = "cases/_caseDefaults.yaml";
     private static final String APPLICATION = "com.example.App";
     private static final CaseSource A_FILE = source("a.yaml");
     private static final CaseSource B_FILE = source("b.yaml");
@@ -130,8 +130,8 @@ class ContextPlannerTest {
         assertThatThrownBy(() -> plans.planFor(other))
                 .isInstanceOf(CaseDefinitionException.class)
                 .hasMessage("cases/b.yaml, case 'b': bean 'auditService' is both mocked (in cases/a.yaml) and spied"
-                        + " (in cases/_defaults.yaml) in cases/ variant 'default'; a bean is replaced the same way for"
-                        + " every case of a variant, so move one of these cases to another variant");
+                        + " (in cases/_caseDefaults.yaml) in cases/ variant 'default'; a bean is replaced the same way"
+                        + " for every case of a variant, so move one of these cases to another variant");
         assertThat(plans.plans()).containsOnlyKeys(new VariantKey(ROOT, "eco"));
     }
 

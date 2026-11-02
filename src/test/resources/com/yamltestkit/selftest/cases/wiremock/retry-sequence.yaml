@@ -2,7 +2,7 @@
 # answers, `verify(…, times(2))` counting the attempts, with the retry count and timeout taken from properties). The
 # partner client retries a 5xx status, an I/O error or a timeout `partner.retries` times (1 in selftest.yml) within
 # `partner.timeout` (1s); `sequence: true` answers consecutive requests in order, the last answer repeating. No file
-# `defaults.call`: a file default call would also go into the multi-step case.
+# `caseDefaults.call`: a file default call would also go into the multi-step case.
 cases:
   - name: a 503 is retried and the second answer serves
     http:

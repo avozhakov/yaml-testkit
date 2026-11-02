@@ -1,5 +1,5 @@
 # Unit call construction: deps matched by parameter name or by type; unlisted parameters are plain mocks.
-defaults:
+caseDefaults:
   call:
     class: com.yamltestkit.selftest.unit.AdTitleFormatter
     method: format

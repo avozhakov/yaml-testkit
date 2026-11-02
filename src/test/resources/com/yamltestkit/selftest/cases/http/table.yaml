@@ -1,8 +1,8 @@
-# A parameter table: shared stubs and call in `defaults`, one case per row that differs only in the query and the
+# A parameter table: shared stubs and call in `caseDefaults`, one case per row that differs only in the query and the
 # expected values (row 51; model: QueryTermAsReceivedIT's @MethodSource table). The engine encodes each qt once, like
 # the publisher client of the model. Flag-driven stubs and derived expectations are not supported, so each row writes
 # its expectations out: the terms the DSP receives, and whether the ads render qt (only a v2.1 JSON-array qt does).
-defaults:
+caseDefaults:
   mocks:
     - bean: dspClient
       method: requestAds

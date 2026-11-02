@@ -1,4 +1,4 @@
-defaults:
+caseDefaults:
   context: ebay-off
 cases:
   - name: every http feature

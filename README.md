@@ -30,7 +30,7 @@ Build the library with `mvn clean verify`: Surefire runs the `*Test` classes, Fa
 3. [Call kinds](#call-kinds)
 4. [Steps and references](#steps-and-references)
 5. [`_context.yaml`](#_contextyaml)
-6. [`_defaults.yaml` and stub layers](#_defaultsyaml-and-stub-layers)
+6. [`_caseDefaults.yaml` and stub layers](#_casedefaultsyaml-and-stub-layers)
 7. [Variants and the variant-wide mock rule](#variants-and-the-variant-wide-mock-rule)
 8. [Stubs on mocks and spies](#stubs-on-mocks-and-spies)
 9. [WireMock services](#wiremock-services)
@@ -69,12 +69,12 @@ Build the library with `mvn clean verify`: Surefire runs the `*Test` classes, Fa
    ```
    com/example/yaml/cases/
        _context.yaml        how to start the application (needed for http and bean cases)
-       _defaults.yaml       stubs applied before every http / bean case (optional)
+       _caseDefaults.yaml   stubs applied before every http / bean case (optional)
        discover/ebay-off.yaml
        ads/table.yaml
    ```
 
-   The folder before the first wildcard of a glob is its root (`com/example/yaml/cases/`). The engine reads `_context.yaml` and `_defaults.yaml` from that root. A file whose name starts with `_` is never a case file.
+   The folder before the first wildcard of a glob is its root (`com/example/yaml/cases/`). The engine reads `_context.yaml` and `_caseDefaults.yaml` from that root. A file whose name starts with `_` is never a case file.
 
 3. Write a case and run the entry class. The IDE shows the cases as a tree: folder, then file, then case name. Cases of one file run in file order.
 
@@ -89,10 +89,10 @@ Build the library with `mvn clean verify`: Surefire runs the `*Test` classes, Fa
 
 ## Case files
 
-A file holds one case, or a list of cases with optional shared `defaults`:
+A file holds one case, or a list of cases with optional shared `caseDefaults`. Top-level keys of a list file are `define` (optional), `caseDefaults` (optional) and `cases`. A single-case file has the case's own keys at the top level, plus an optional `define`.
 
 ```yaml
-defaults:
+caseDefaults:
   mocks:
     - bean: dspClient
       method: requestAds
@@ -116,11 +116,51 @@ Rules:
 
 1. Every case has a `name`, unique in its file.
 2. Every case has exactly one `call` or a list of `steps`.
-3. The file's `defaults` are merged into each case before the case's own values. A case value wins. Objects (`call`, its `query`, `headers` and `deps`, `expect`, `expect.headers`, `bodyText`) merge key by key. A list or a payload in the case replaces the default one. `mocks`, `spies` and `http` in `defaults` are a separate stub layer (see [stub layers](#_defaultsyaml-and-stub-layers)).
+3. The file's `caseDefaults` are merged into each case before the case's own values. A case value wins. Objects (`call`, its `query`, `headers` and `deps`, `expect`, `expect.headers`, `bodyText`) merge key by key. A list or a payload in the case replaces the default one. `mocks`, `spies` and `http` in `caseDefaults` are a separate stub layer (see [stub layers](#_casedefaultsyaml-and-stub-layers)).
 4. A payload (`args`, `returns`, `body`, an expected value) is written inline or as `{ file: <path> }`. The path is relative to the case file. A file that is not JSON gives its text.
 5. YAML `null` is Java `null`. For an `Optional` target it is `Optional.empty()`.
 6. `"#any"` must be in quotes, because `#` starts a YAML comment.
 7. `context: <variant>` selects a context variant, and `freshContext: true` asks for a new context (see [variants](#variants-and-the-variant-wide-mock-rule) and [fresh contexts](#polling-fresh-contexts-and-settlems)).
+8. YAML anchors, aliases and `<<` merge keys work in every YAML file the engine reads (see [anchors and merge keys](#anchors-aliases-and-merge-keys)).
+9. `define` is an optional top-level block of fragments for anchors. The engine applies it nowhere (see [`define`](#a-place-for-anchors-define)). It is not `caseDefaults`: `caseDefaults` is merged into every case, `define` into none.
+
+### Anchors, aliases and merge keys
+
+An anchor (`&name`) marks a value, and an alias (`*name`) later in the same file inserts a copy of it. A merge key (`<<`) copies the keys of one mapping, or of a list of mappings, into another mapping, where keys can be overridden:
+
+```yaml
+define:
+  request: &request
+    intent: &intent { prompt: running shoes, ad_count: 2 }
+    meta: { request_id: req-1 }
+caseDefaults:
+  call: { http: POST /discover }
+cases:
+  - name: full request
+    call: { body: *request }
+
+  - name: one ad
+    call:
+      body:
+        <<: *request                          # intent and meta of the defined request
+        intent: { <<: *intent, ad_count: 1 }  # prompt stays, ad_count changes
+```
+
+1. Anchors and merge keys are resolved when the file is read, before schema validation and before the `caseDefaults` merge. The schema, the binders and the failure messages see only the resolved values.
+2. An alias inserts an independent copy of an object, a list or a scalar. A scalar keeps its type: an alias to `42` is the number 42.
+3. An anchor works only after its definition, in the same file. Define it in the top-level `define` block, or at its first use. The engine reads `_context.yaml`, `_caseDefaults.yaml`, every case file and every YAML payload file separately, so an anchor does not reach another file.
+4. A merge is shallow, as in the YAML merge-key specification. A key written in the mapping wins over a merged key. In `<<: [*a, *b]`, a key of `*a` wins over the same key of `*b`. A merged value that is an object is replaced as a whole, not merged: to change one key of a nested object, merge at that level, like `intent` above.
+5. An alias to an unknown anchor, and a `<<` whose value is not a mapping or a list of mappings, fail the file when it loads. The message gives the line and the column.
+6. Aliases may add at most 100 000 values to one file. A file with more (nested aliases multiply) fails when it loads.
+
+#### A place for anchors: `define`
+
+`define` is an optional top-level key of a case file, `_context.yaml` and `_caseDefaults.yaml`. Its value is any YAML, usually a mapping of named fragments that carry anchors. It exists only so that aliases and merge keys can refer to it.
+
+- The engine applies `define` nowhere. It does not bind it, does not merge it, and does not check it against the case structure: a fragment may be a part of a request, a stub response or anything else. After schema validation, the engine drops the block.
+- `define` is not `caseDefaults`. `caseDefaults` is applied to every case of the file: a call, an expectation or a stub there changes each case. `define` is applied to no case: a fragment in it changes a case only where the case uses an alias or a merge key.
+- Write `define` before the aliases that use it, so first in the file: an anchor works only after its definition.
+- `define` is allowed only at the top level. Inside a case, a step or `caseDefaults` it fails schema validation.
 
 ## Call kinds
 
@@ -132,7 +172,7 @@ A `call` holds exactly one of the keys `http`, `bean` and `class`. That key give
 | `bean` | a bean name | `method` (required), `paramTypes`, `args` |
 | `class` | a class name | `method` (required), `paramTypes`, `args`, `constructor`, `deps` |
 
-The engine checks the call after it merges the file's `defaults`, so `defaults.call` may give the kind and a case only some fields, or the other way round. The case fails when the file loads if the merged call has no kind key, more than one kind key, or a field of another kind (for example `deps` in a `bean` call). The other cases of the file still run. A `defaults.call` with such a problem fails every case of the file.
+The engine checks the call after it merges the file's `caseDefaults`, so `caseDefaults.call` may give the kind and a case only some fields, or the other way round. The case fails when the file loads if the merged call has no kind key, more than one kind key, or a field of another kind (for example `deps` in a `bean` call). The other cases of the file still run. A `caseDefaults.call` with such a problem fails every case of the file.
 
 ### `http`
 
@@ -149,7 +189,7 @@ expect:
 
 1. `http` is the HTTP method (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` or `OPTIONS`), one space and a path that starts with `/`. The path has no spaces, `?` or `#`: the query goes in `query` or `rawQuery`, not in the path. A case that changes the method or the path writes the whole `http` value again.
 2. `query` is a map. The engine encodes each value (a space becomes `%20`). A list value sends the parameter once for each item.
-3. `rawQuery` is sent exactly as written, without encoding: `rawQuery: "plid=123&qt=%5B%22a%22%5D"`. A call can't have both `query` and `rawQuery`. This also applies after the merge: if a file's `defaults.call` has a `query` and a case has a `rawQuery`, the case fails when the file loads.
+3. `rawQuery` is sent exactly as written, without encoding: `rawQuery: "plid=123&qt=%5B%22a%22%5D"`. A call can't have both `query` and `rawQuery`. This also applies after the merge: if a file's `caseDefaults.call` has a `query` and a case has a `rawQuery`, the case fails when the file loads.
 4. A `body` that is not a string is sent as JSON with `Content-Type: application/json`, unless the case sets that header.
 5. The request goes to `http://localhost:<port>` over HTTP/1.1, with a 5 s connect timeout and a 60 s request timeout. Async controllers need nothing special.
 
@@ -269,6 +309,7 @@ converters: [ com.example.yaml.MoneyConverter ]
 | `variants` | Named variants. Each one can set `properties`, `mockBeans`, `spyBeans` and `valueBeans`. |
 | `converters` | Extra value converters, by class name (see [Adding a value converter](#adding-a-value-converter)). |
 | `settleMs` | A wait between cases for late asynchronous calls (see [`settleMs`](#polling-fresh-contexts-and-settlems)). |
+| `define` | Fragments for YAML anchors, for example stubs shared by several variants. The engine applies it nowhere (see [`define`](#a-place-for-anchors-define)). |
 
 Mocks, spies and value beans:
 
@@ -277,9 +318,9 @@ Mocks, spies and value beans:
 3. `stubs` on a `mockBeans` / `spyBeans` entry are active from the moment the mock or spy exists. So they answer calls made while the context starts, for example a cache loaded at startup.
 4. A bean name that the context does not have, and that has no `type`, stops the context start. The message names the bean and every file that refers to it.
 
-## `_defaults.yaml` and stub layers
+## `_caseDefaults.yaml` and stub layers
 
-`_defaults.yaml` holds `mocks`, `spies` and `http` stubs that apply before every `http` / `bean` case of its root:
+`_caseDefaults.yaml` holds `mocks`, `spies` and `http` stubs that apply before every `http` / `bean` case of its root, and an optional [`define`](#a-place-for-anchors-define) block of fragments for anchors, which the engine applies nowhere:
 
 ```yaml
 mocks:
@@ -296,8 +337,8 @@ http:
 The engine registers stubs in layers, lowest first:
 
 1. boot-time `stubs` of the variant's `mockBeans` / `spyBeans`;
-2. `_defaults.yaml`;
-3. the file's `defaults`;
+2. `_caseDefaults.yaml`;
+3. the file's `caseDefaults`;
 4. the case;
 5. the step.
 
@@ -306,7 +347,7 @@ A later layer's stub with the same key replaces the earlier one, and the earlier
 **Which stub answers.** Mockito and WireMock answer a call with the stub that was registered last among the stubs that match it. The engine registers the layers lowest first, and the stubs of one layer in list order. This has three effects:
 
 1. Bean stubs in one layer: put a `"#any"` stub, or a stub without `args`, before the stubs with specific `args`. If it comes after them, it answers every call, and the specific stubs never answer.
-2. Bean stubs in different layers: a catch-all stub of a higher layer has a different key from a specific stub of a lower layer. So it does not replace that stub, but the engine registers it later, and it answers all calls. For example, a case stub `{ bean: providerRegistry, method: find, returns: … }` without `args` hides the `args: [ dsp ]` stub of `_defaults.yaml`.
+2. Bean stubs in different layers: a catch-all stub of a higher layer has a different key from a specific stub of a lower layer. So it does not replace that stub, but the engine registers it later, and it answers all calls. For example, a case stub `{ bean: providerRegistry, method: find, returns: … }` without `args` hides the `args: [ dsp ]` stub of `_caseDefaults.yaml`.
 3. WireMock stubs follow the same rule. A stub with a wider match (a `pathPattern`, or no `method`) that the engine registers after a more specific stub answers the requests of both. In one layer, put the wider stub first. In a higher layer, a wider stub hides the more specific stubs of the lower layers.
 
 Before each case the engine resets every mock and spy of the variant's context and every WireMock server, and then registers the layers again. So a stub or a recorded call of one case never reaches the next case.
@@ -338,7 +379,7 @@ expect:
     beanTypes: { absent: [ com.example.OptionalFeature ] }
 ```
 
-**The variant-wide mock rule.** Mocks and spies are fixed when a context starts. So the engine collects every bean that `_context.yaml`, `_defaults.yaml` or any case of a variant names under `mocks` / `spies`. If one case of a variant mocks a bean, that bean is a mock in every case of the variant. In the other cases it answers with the lower stub layers or with Mockito defaults. All loaded cases count, also the ones that `yamlit.filter` does not select, so a case behaves the same alone and with the others.
+**The variant-wide mock rule.** Mocks and spies are fixed when a context starts. So the engine collects every bean that `_context.yaml`, `_caseDefaults.yaml` or any case of a variant names under `mocks` / `spies`. If one case of a variant mocks a bean, that bean is a mock in every case of the variant. In the other cases it answers with the lower stub layers or with Mockito defaults. All loaded cases count, also the ones that `yamlit.filter` does not select, so a case behaves the same alone and with the others.
 
 Add a new variant when a case needs a bean to be real and another case of the same variant needs it mocked. The engine also rejects these setups before the context starts:
 
@@ -389,7 +430,7 @@ Declare a logical name for each external HTTP service in `_context.yaml`. The en
 | `${wiremock.<service>.host}` | `localhost` |
 | `${wiremock.<service>.port}` | the port |
 
-Stubs go into an `http` list in `_defaults.yaml`, a file's `defaults`, a case or a step:
+Stubs go into an `http` list in `_caseDefaults.yaml`, a file's `caseDefaults`, a case or a step:
 
 ```yaml
 http:
@@ -654,7 +695,7 @@ The engine checks every file against `yaml-testkit.schema.json` when it loads. T
 2. Add a mapping. Set **Schema file or URL** to the schema file: `src/main/resources/com/yamltestkit/yaml-testkit.schema.json` in this repository, or the same path inside the `yaml-testkit` JAR in a service project. Set **Schema version** to the 2020-12 draft, or to the newest version that the IDE offers.
 3. Add each case folder (for example `src/test/resources/com/example/yaml/cases`) as a directory of the mapping.
 
-The schema covers case files, `_context.yaml` and `_defaults.yaml`. It detects the file type from the top-level keys.
+The schema covers case files, `_context.yaml` and `_caseDefaults.yaml`. It detects the file type from the top-level keys.
 
 ## Adding a value converter
 
@@ -700,10 +741,11 @@ Conversion notes:
 
 ## Things to know
 
-**Files and defaults**
+**Files and `caseDefaults`**
 
-1. A file's `defaults.call` merges into every case of the file. If a file has multi-step cases or cases of another call kind, don't put `call` into its `defaults`; write each call in full.
-2. An overloaded method needs `paramTypes`, in stubs, calls and `verify`.
+1. A file's `caseDefaults.call` merges into every case of the file. If a file has multi-step cases or cases of another call kind, don't put `call` into its `caseDefaults`; write each call in full. Anchor the repeated parts in [`define`](#a-place-for-anchors-define) and reuse them with an alias or `<<`.
+2. YAML anchors (`&name`), aliases (`*name`) and merge keys (`<<: *name`) are resolved when a file is read. An alias is never sent as its anchor name. A merge is shallow: a nested object in the mapping replaces the merged one as a whole.
+3. An overloaded method needs `paramTypes`, in stubs, calls and `verify`.
 
 **Contexts and beans**
 
@@ -712,7 +754,7 @@ Conversion notes:
 3. A variant that only `freshContext` cases use never starts a shared context.
 4. Boot-time log events are visible only in `freshContext` cases.
 5. Real beans keep their state between the cases of a variant. A case that reads a stateful bean (for example a cache) should prepare it first, for example call `reload`.
-6. A bean that only `_defaults.yaml` names is skipped in a variant whose context has no such bean, so a defaults stub does not stop that context from starting.
+6. A bean that only `_caseDefaults.yaml` names is skipped in a variant whose context has no such bean, so its stub there does not stop that context from starting.
 7. A bean name that is an alias works: the engine uses the bean it points to. A singleton that the application registers directly, without a bean definition, can't be mocked or spied.
 8. A mocked `FactoryBean` is mocked as the type of the object it makes. If that type can't be found without creating the bean, add `type` to the `mockBeans` entry.
 9. A spy wraps the bean before the AOP proxies, so the spy sees the real target. A bean that is already a proxy when the spy sees it (for example made by a `FactoryBean`) can't be spied; the start fails with the bean's name. Spy the bean that it delegates to instead.
@@ -746,7 +788,7 @@ These test mechanics stay in Java tests, or a case expresses them another way:
 | Joins between two lists (match every item of one list to an item of another) | Compare equal lists, or check `unique`. |
 | Flag-driven conditional stubs and expectations derived from flags | Write one explicit case per combination (a `cases` table). |
 | Loops over generated inputs | Write each input in the case file; check each element with `all` / `none`. |
-| Deep merge of a seed value (a subclass changes one field of a protobuf seed) | A later stub layer replaces the whole value; write the whole value. |
+| Deep merge of a seed value (a subclass changes one field of a protobuf seed) | A later stub layer replaces the whole value; write the whole value. Within one file, an anchor and `<<` reuse it and override keys level by level. |
 | Dynamic properties from test servers other than WireMock | Use a WireMock service and its `${wiremock.*}` placeholders. |
 | Mocking a bean by type or qualifier | Mock it by bean name. |
 | `Mono` / reactive return values, vavr `Either` / `Option`, `argThat`-style custom matchers, `InOrder`, a stubbed `Clock` | Not built yet. A custom value converter can add a return type. |

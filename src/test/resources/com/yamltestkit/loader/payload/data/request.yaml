@@ -1,0 +1,3 @@
+base: &base { prompt: running shoes, ad_count: 2 }
+intent: { <<: *base, ad_count: 1 }
+copy: *base

@@ -1,7 +1,7 @@
 # thenThrow with typed constructors and causes (row 20; model: TrackingUrlResilienceIT): the DSP client throws the
 # checked ApiException built from `args` or around a `cause`; the flow retries (fixture.dsp.retries = 1) and degrades
 # to a 200 without ads, naming the failure.
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: camera } }
   expect: { status: 200 }
 cases:

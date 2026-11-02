@@ -10,8 +10,8 @@ import com.yamltestkit.domain.model.YamlCase;
 import java.util.List;
 
 /**
- * Binds one case (its file defaults already merged) to the model. Checks what the schema can't check before the
- * merge: exactly one of {@code call} / {@code steps}; each {@code call} is checked by {@link CallBinder}.
+ * Binds one case (its file's {@code caseDefaults} already merged) to the model. Checks what the schema can't check
+ * before the merge: exactly one of {@code call} / {@code steps}; each {@code call} is checked by {@link CallBinder}.
  */
 final class CaseBinder {
 
@@ -28,8 +28,8 @@ final class CaseBinder {
     }
 
     /**
-     * @param merged   the case with the file's defaults merged in (stub keys excluded)
-     * @param defaults the file's {@code defaults} block, or a missing node
+     * @param merged   the case with the file's {@code caseDefaults} merged in (stub keys excluded)
+     * @param defaults the file's {@code caseDefaults} block, or a missing node
      * @param own      the case as written, whose stub keys form the case stub layer
      */
     YamlCase bind(JsonNode merged, JsonNode defaults, JsonNode own) {
@@ -38,12 +38,12 @@ final class CaseBinder {
         boolean hasSteps = merged.has("steps");
         if (hasCall == hasSteps) {
             throw new CaseDefinitionException(hasCall
-                    ? "has both `call` and `steps` (one of them may come from the file's defaults)"
+                    ? "has both `call` and `steps` (one of them may come from the file's `caseDefaults`)"
                     : "has neither `call` nor `steps`");
         }
         if (hasSteps && merged.has("expect")) {
             throw new CaseDefinitionException("has `steps` and a case-level `expect`; put `expect` into the steps"
-                    + " (it may come from the file's defaults)");
+                    + " (it may come from the file's `caseDefaults`)");
         }
         List<Step> steps = hasCall
                 ? List.of(new Step(Step.IMPLICIT_NAME,

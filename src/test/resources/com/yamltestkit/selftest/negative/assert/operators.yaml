@@ -1,7 +1,7 @@
 # One case per assert operator, each on data that must make it fail (spec: Engine self-test suite). The ad request
 # returns the two default ads: p1 "Red shoes" (price 120, no asin, gtin null) and p2 "Blue shoes" (price 80, asin
 # B00SHOES).
-defaults:
+caseDefaults:
   call: { http: GET /ads, query: { plid: 14019, qt: shoes } }
 cases:
   - name: equals

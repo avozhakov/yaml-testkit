@@ -1,6 +1,6 @@
 # Log and context expectations on data that must make them fail. A feed reload with a row that has no id logs
 # `WARN unmappable feed row ...` from FeedCache.
-defaults:
+caseDefaults:
   mocks:
     - { bean: feedRepository, method: findAll, returns: [ { id: 1 }, { name: feed-42 } ] }
   call: { bean: feedCache, method: reload }

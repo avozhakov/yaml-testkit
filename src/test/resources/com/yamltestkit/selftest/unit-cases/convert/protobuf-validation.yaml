@@ -1,6 +1,6 @@
 # Row 15 at unit level: a protobuf message (Struct stands in for a generated message) wrapped in a vavr
 # Validation, converted from YAML for a dependency stub and back to JSON for expectations.
-defaults:
+caseDefaults:
   call:
     class: com.yamltestkit.selftest.unit.PlacementService
     args: [ 13038 ]

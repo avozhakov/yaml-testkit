@@ -1,0 +1,7 @@
+# A merge key whose value is not a mapping (the `*` is missing): the whole file fails to load, naming the key's line.
+name: merge key without an alias
+call:
+  http: POST /discover
+  body:
+    <<: request
+    meta: { request_id: req-1 }

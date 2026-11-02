@@ -26,14 +26,17 @@ import java.util.Map;
 /**
  * Binds the stub grammar: {@code mocks} / {@code spies} entries, method stubs and their answers, WireMock
  * {@code http} stubs and unit {@code deps}. Shared by case files and, later, {@code _context.yaml} /
- * {@code _defaults.yaml}.
+ * {@code _caseDefaults.yaml}.
  */
 @RequiredArgsConstructor
 final class StubBinder {
 
     private final PayloadResolver payloads;
 
-    /** The {@code mocks}, {@code spies} and {@code http} keys of a case, step, defaults block or defaults file. */
+    /**
+     * The {@code mocks}, {@code spies} and {@code http} keys of a case, step, {@code caseDefaults} block or
+     * {@code _caseDefaults.yaml}.
+     */
     StubSet stubSet(JsonNode node) {
         return new StubSet(
                 Nodes.listField(node, "mocks", this::beanEntry),

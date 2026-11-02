@@ -1,6 +1,6 @@
-# A bean only _defaults.yaml names is skipped, with its stubs, in a variant whose context lacks it (design D20).
+# A bean only _caseDefaults.yaml names is skipped, with its stubs, in a variant whose context lacks it (design D20).
 cases:
-  - name: the defaults stub applies where the bean exists
+  - name: the _caseDefaults.yaml stub applies where the bean exists
     call: { bean: optionalFeature, method: name }
     expect: { returns: mocked }
   - name: a variant without the bean still starts

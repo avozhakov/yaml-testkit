@@ -1,7 +1,7 @@
 # POST of a JSON body with headers to an endpoint that completes asynchronously (row 3; model:
 # AbstractDiscoverMultiFeedIT.callDiscover, which needs asyncStarted + asyncDispatch under MockMvc). Over a real port
 # the engine just receives the final response.
-defaults:
+caseDefaults:
   http:
     - service: partner
       method: POST

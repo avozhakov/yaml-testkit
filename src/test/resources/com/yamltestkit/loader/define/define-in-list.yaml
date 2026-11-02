@@ -1,0 +1,20 @@
+# `define` holds anchored fragments only; its own content is not a case (no `name`, keys no case has) and is never
+# bound. Cases reuse the fragments with an alias (`*request`) or a merge key (`<<: *intent`).
+define:
+  request: &request
+    intent: &intent { prompt: running shoes, ad_count: 2 }
+    meta: { request_id: req-1 }
+  ok: &ok { status: 200 }
+  not-a-case: { expct: 1, call: { bogus: true }, name: 7 }
+caseDefaults:
+  call: { http: POST /discover }
+cases:
+  - name: alias
+    call: { body: *request }
+    expect: *ok
+  - name: merge
+    call:
+      body:
+        <<: *request
+        intent: { <<: *intent, ad_count: 1 }
+    expect: { <<: *ok, headers: { Content-Type: application/json } }

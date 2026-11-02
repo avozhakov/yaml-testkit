@@ -64,7 +64,7 @@ class SpringCaseLifecycleTest {
                     List.of(), List.of()), Map.of(), List.of("partner"), List.of(), 25);
     private static final RootConfiguration ROOT_CONFIGURATION = new RootConfiguration(ROOT, CONTEXT,
             new StubSet(List.of(new BeanEntry("reportStore", List.of(DEFAULTS_STUB))), List.of(), List.of()),
-            "cases/_defaults.yaml", null);
+            "cases/_caseDefaults.yaml", null);
     private static final CaseSource SOURCE = new CaseSource(URI.create("classpath:/cases/a.yaml"), ROOT, "a.yaml");
     private static final Step STEP = new Step("main", new Call.Bean("feedCache", new MethodRef("size", null),
             List.of()), StubSet.EMPTY, Expect.NONE);
@@ -135,7 +135,7 @@ class SpringCaseLifecycleTest {
         order.verify(mockStubs).apply(feedRepository, Object.class, List.of(BOOT_STUB), errors,
                 "cases/_context.yaml, mockBeans feedRepository");
         order.verify(mockStubs).apply(reportStore, Object.class, List.of(DEFAULTS_STUB), errors,
-                "cases/_defaults.yaml, mocks reportStore");
+                "cases/_caseDefaults.yaml, mocks reportStore");
         verify(mockBeans, never()).resetAll();
         verify(mockPause, times(1)).millis(25);
     }

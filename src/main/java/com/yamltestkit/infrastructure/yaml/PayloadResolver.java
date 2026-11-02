@@ -1,7 +1,6 @@
 package com.yamltestkit.infrastructure.yaml;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.TextNode;
 import com.yamltestkit.domain.json.JsonMappers;
 import com.yamltestkit.domain.model.CaseDefinitionException;
@@ -35,10 +34,10 @@ final class PayloadResolver {
     JsonNode jsonFile(String path) {
         String lowerCase = path.toLowerCase(Locale.ROOT);
         if (lowerCase.endsWith(".json")) {
-            return parse(path, JsonMappers.plain());
+            return parse(path, JsonMappers.plain()::readTree);
         }
         if (lowerCase.endsWith(".yaml") || lowerCase.endsWith(".yml")) {
-            return parse(path, YamlFiles.mapper());
+            return parse(path, YamlFiles::readTree);
         }
         return TextNode.valueOf(readText(path));
     }
@@ -56,12 +55,17 @@ final class PayloadResolver {
         }
     }
 
-    private JsonNode parse(String path, ObjectMapper mapper) {
+    private JsonNode parse(String path, TreeReader reader) {
         try (InputStream in = open(path)) {
-            return mapper.readTree(in);
+            return reader.read(in);
         } catch (IOException e) {
             throw new CaseDefinitionException("invalid payload file " + path + ": " + e.getMessage(), e);
         }
+    }
+
+    @FunctionalInterface
+    private interface TreeReader {
+        JsonNode read(InputStream in) throws IOException;
     }
 
     private InputStream open(String path) throws IOException {

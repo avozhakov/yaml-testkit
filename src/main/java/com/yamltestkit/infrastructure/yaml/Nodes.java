@@ -1,6 +1,7 @@
 package com.yamltestkit.infrastructure.yaml;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.yamltestkit.domain.model.CaseDefinitionException;
 import org.jspecify.annotations.Nullable;
 
@@ -20,9 +21,19 @@ import java.util.regex.Pattern;
  */
 final class Nodes {
 
+    private static final String DEFINE = "define";
+
     private static final Pattern DURATION = Pattern.compile("^(\\d+)(ms|s|m)$");
 
     private Nodes() {
+    }
+
+    /**
+     * Removes the top-level {@code define} block of a schema-validated file. Its anchors are already resolved into
+     * the aliases that use them, so the block itself is never bound or applied.
+     */
+    static void dropDefine(JsonNode validatedFile) {
+        ((ObjectNode) validatedFile).remove(DEFINE);
     }
 
     static @Nullable String text(JsonNode node, String field) {

@@ -15,7 +15,7 @@ import java.util.Set;
  * Rejects sections that do not apply to a case's call kinds: Spring-only sections in a case whose calls are all
  * {@code class}, expectations of the wrong call kind, and verification targets that don't exist for the call. Also
  * requires unique step and capture names, since references resolve by name, and rejects {@code returns} together
- * with {@code throws}, which merging the file's {@code defaults} into a case can produce.
+ * with {@code throws}, which merging the file's {@code caseDefaults} into a case can produce.
  */
 public final class CaseRules {
 
@@ -78,7 +78,7 @@ public final class CaseRules {
         }
         if (!expect.returns().isMissingNode() && expect.throwsException() != null) {
             throw new CaseDefinitionException(where + "`returns` and `throws` exclude each other; one of them may come"
-                    + " from the file's `defaults`");
+                    + " from the file's `caseDefaults`");
         }
         if (step.call().kind() == CallKind.CLASS && expect.context() != null) {
             throw new CaseDefinitionException(where + "`expect.context` needs an application context");

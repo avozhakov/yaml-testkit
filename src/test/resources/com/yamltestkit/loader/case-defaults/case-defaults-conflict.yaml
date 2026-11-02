@@ -1,4 +1,4 @@
-defaults:
+caseDefaults:
   call:
     http: GET /is
 cases:

@@ -1,10 +1,10 @@
 # Stub layers (rows 23, 53; models: feature tests re-stubbing AbstractSpringBootIT's lenient defaults, and a subclass
-# overriding seedPlacement()): _defaults.yaml, then the file's `defaults`, then the case. A later layer replaces the
-# earlier stub of the same bean + method + args without invoking it, and replaces the whole value: there is no deep
-# merge of a seed.
-defaults:
+# overriding seedPlacement()): _caseDefaults.yaml, then the file's `caseDefaults`, then the case. A later layer
+# replaces the earlier stub of the same bean + method + args without invoking it, and replaces the whole value: there
+# is no deep merge of a seed.
+caseDefaults:
   mocks:
-    # Over _defaults.yaml's four slots: a placement with two.
+    # Over _caseDefaults.yaml's four slots: a placement with two.
     - { bean: placementAccess, method: getPlacement, returns: { valid: { id: 14019, availableSlots: 2 } } }
     # Throws if it ever runs, so a case replacing it proves the replaced answer is never invoked.
     - bean: innerClient

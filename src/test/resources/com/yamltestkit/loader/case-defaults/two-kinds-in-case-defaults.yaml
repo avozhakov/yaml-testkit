@@ -1,0 +1,9 @@
+# Two call kinds in `caseDefaults.call`: the loader binds each case with them merged in, so every case fails.
+caseDefaults:
+  call:
+    http: GET /is
+    bean: feedCache
+cases:
+  - name: first
+  - name: second
+    call: { query: { plid: 1 } }

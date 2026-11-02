@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:yamltestkit:yaml-testkit.schema.json",
   "title": "YAML Testkit",
-  "description": "Case files (*.yaml), _context.yaml and _defaults.yaml of the YAML Testkit. The root dispatches on content for IDE use; the engine validates each file against its own definition (caseFile, contextFile, defaultsFile).",
+  "description": "Case files (*.yaml), _context.yaml and _caseDefaults.yaml of the YAML Testkit. The root dispatches on content for IDE use; the engine validates each file against its own definition (caseFile, contextFile, caseDefaultsFile).",
   "if": {
     "anyOf": [
       {
@@ -89,12 +89,12 @@
       "$ref": "#/$defs/contextFile"
     },
     "else": {
-      "$ref": "#/$defs/defaultsFile"
+      "$ref": "#/$defs/caseDefaultsFile"
     }
   },
   "$defs": {
     "caseFile": {
-      "description": "A single case, or an optional `defaults` block plus a `cases` list.",
+      "description": "A single case, or an optional `caseDefaults` block plus a `cases` list; either form may start with a `define` block of anchored fragments.",
       "if": {
         "type": "object",
         "required": [
@@ -111,7 +111,10 @@
     "caseList": {
       "type": "object",
       "properties": {
-        "defaults": {
+        "define": {
+          "$ref": "#/$defs/define"
+        },
+        "caseDefaults": {
           "$ref": "#/$defs/caseDefaults"
         },
         "cases": {
@@ -128,8 +131,11 @@
       "additionalProperties": false
     },
     "caseDefaults": {
-      "description": "Merged into each case of the file before the case's own values (case values win). `mocks`, `spies` and `http` form their own stub layer between _defaults.yaml and the case.",
+      "description": "Merged into each case of the file before the case's own values (case values win). `mocks`, `spies` and `http` form their own stub layer between _caseDefaults.yaml and the case.",
       "$ref": "#/$defs/caseObject",
+      "properties": {
+        "define": false
+      },
       "not": {
         "required": [
           "name"
@@ -137,8 +143,11 @@
       }
     },
     "listCase": {
-      "description": "A case of a `cases` list. `call` may be partial here: it is completed by `defaults.call`.",
+      "description": "A case of a `cases` list. `call` may be partial here: it is completed by `caseDefaults.call`.",
       "$ref": "#/$defs/caseObject",
+      "properties": {
+        "define": false
+      },
       "required": [
         "name"
       ]
@@ -191,7 +200,7 @@
       "additionalProperties": false
     },
     "call": {
-      "description": "Exactly one of `http`, `bean`, `class` names the call's kind and target; the other keys are that kind's fields (http: query, rawQuery, headers, body; bean: method, paramTypes, args; class: method, paramTypes, args, constructor, deps). A file's `defaults.call` and a case's `call` may each be partial: the kind and its fields are checked once they are merged.",
+      "description": "Exactly one of `http`, `bean`, `class` names the call's kind and target; the other keys are that kind's fields (http: query, rawQuery, headers, body; bean: method, paramTypes, args; class: method, paramTypes, args, constructor, deps). A file's `caseDefaults.call` and a case's `call` may each be partial: the kind and its fields are checked once they are merged.",
       "type": "object",
       "properties": {
         "http": {
@@ -1242,6 +1251,9 @@
       "description": "_context.yaml: how the engine starts the application for http / bean cases.",
       "type": "object",
       "properties": {
+        "define": {
+          "$ref": "#/$defs/define"
+        },
         "application": {
           "description": "Fully qualified name of the Spring Boot application class.",
           "$ref": "#/$defs/typeName"
@@ -1309,10 +1321,13 @@
       },
       "additionalProperties": false
     },
-    "defaultsFile": {
-      "description": "_defaults.yaml: stubs applied before each http / bean case.",
+    "caseDefaultsFile": {
+      "description": "_caseDefaults.yaml: stubs applied before each http / bean case.",
       "type": "object",
       "properties": {
+        "define": {
+          "$ref": "#/$defs/define"
+        },
         "mocks": {
           "$ref": "#/$defs/beanStubs"
         },
@@ -1436,6 +1451,9 @@
     "caseObject": {
       "type": "object",
       "properties": {
+        "define": {
+          "$ref": "#/$defs/define"
+        },
         "name": {
           "type": "string",
           "minLength": 1
@@ -1463,7 +1481,7 @@
           "$ref": "#/$defs/expect"
         },
         "context": {
-          "description": "Name of a variant declared under `variants` in _context.yaml; null selects the default variant (e.g. to override `defaults.context`).",
+          "description": "Name of a variant declared under `variants` in _context.yaml; null selects the default variant (e.g. to override `caseDefaults.context`).",
           "type": [
             "string",
             "null"
@@ -1475,6 +1493,9 @@
         }
       },
       "additionalProperties": false
+    },
+    "define": {
+      "description": "Top-level only. Free-form fragments that exist only to carry YAML anchors (`&name`), reused later in the same file with aliases (`*name`) or merge keys (`<<: *name`). Write it before the aliases that use it. The engine neither validates nor applies it: unlike a case file's `caseDefaults`, which is merged into every case, `define` is applied nowhere."
     },
     "plainStub": {
       "description": "A stub without `bean` (boot-time `stubs`, `deps.<name>.stubs`).",

@@ -1,0 +1,7 @@
+define:
+  stub: &placement { bean: placementAccess, method: getPlacement }
+name: single case with define
+call: { bean: placementService, method: find, args: [ 7 ] }
+mocks:
+  - { <<: *placement, returns: { id: 1 } }
+expect: { returns: { id: 1 } }

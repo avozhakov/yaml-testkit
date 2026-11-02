@@ -1,4 +1,4 @@
-defaults:
+caseDefaults:
   call:
     http: GET /is
     query: { plid: 123 }
@@ -9,7 +9,7 @@ defaults:
     status: 200
     body: { ads: [ { id: 1 } ], requestId: r1 }
 cases:
-  - name: inherits the defaults
+  - name: inherits the caseDefaults
   - name: overrides query, status and body
     call:
       query: { qt: shoes }

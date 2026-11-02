@@ -1,0 +1,16 @@
+# define-in-list.yaml with every alias and merge key written out and no `define`: it must load to the same cases.
+caseDefaults:
+  call: { http: POST /discover }
+cases:
+  - name: alias
+    call:
+      body:
+        intent: { prompt: running shoes, ad_count: 2 }
+        meta: { request_id: req-1 }
+    expect: { status: 200 }
+  - name: merge
+    call:
+      body:
+        intent: { prompt: running shoes, ad_count: 1 }
+        meta: { request_id: req-1 }
+    expect: { status: 200, headers: { Content-Type: application/json } }
